@@ -96,7 +96,7 @@ public class MacBroker implements IBroker {
                 authParamsBuilder.popParameters(parameters.proofOfPossession().getHttpMethod().methodName, parameters.proofOfPossession().getUri(), parameters.proofOfPossession().getNonce());
             }
 
-            AuthParameters authParameters = authParamsBuilder.build();
+            MsalMacAuthParameters authParameters = authParamsBuilder.build();
 
             return interop.signInInteractively(parameters.windowHandle(), authParameters, correlationID, parameters.loginHint()).thenCompose(acctResult -> interop.acquireTokenInteractively(parameters.windowHandle(), authParameters, correlationID, ((MsalMacAuthResult) acctResult).getAccount())).thenApply(authResult -> parseBrokerAuthResult(application.authority(), ((MsalMacAuthResult) authResult).getIdToken(), ((MsalMacAuthResult) authResult).getAccessToken(), ((MsalMacAuthResult) authResult).getAccount().getAccountId(), ((MsalMacAuthResult) authResult).getAccount().getClientInfo(), ((MsalMacAuthResult) authResult).getAccessTokenExpirationTime(), ((MsalMacAuthResult) authResult).isPopAuthorization()));
         } catch (MsalInteropException interopException) {
