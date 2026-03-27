@@ -250,7 +250,7 @@ public class MsalMacRuntimeInterop {
      * @param loginHint      a login hint (such as a username) that may be shown to the user
      * @return an AsyncHandler instance, which can be treated as a CompletableFuture
      */
-    public MsalMacRuntimeFuture signInInteractively(long windowHandle, AuthParameters authParameters, String correlationId, String loginHint) {
+    public MsalMacRuntimeFuture signInInteractively(long windowHandle, MsalMacAuthParameters authParameters, String correlationId, String loginHint) {
         MsalMacRuntimeFuture msalRuntimeFuture = new MsalMacRuntimeFuture(new MsalMacCallbacks.AuthResultCallback());
 
         windowHandle = checkWindowHandle(windowHandle);
@@ -296,7 +296,7 @@ public class MsalMacRuntimeInterop {
      *                       telemetry and logs
      * @return an AsyncHandler instance, which can be treated as a CompletableFuture
      */
-    public MsalMacRuntimeFuture acquireTokenInteractively(long windowHandle, AuthParameters authParameters, String correlationId, MsalMacAccount account) {
+    public MsalMacRuntimeFuture acquireTokenInteractively(long windowHandle, MsalMacAuthParameters authParameters, String correlationId, MsalMacAccount account) {
         if (account.getHandle() == null) {
             throw new MsalInteropException("Account handle is null, sign in or account discovery failed. Cannot retrieve tokens.", "msalruntime_account_error");
         }
