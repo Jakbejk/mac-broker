@@ -1,5 +1,7 @@
 package com.microsoft.aad.msal4j;
 
+import com.microsoft.aad.msal4jbrokers.Broker;
+
 import java.net.MalformedURLException;
 import java.net.URI;
 
@@ -12,7 +14,8 @@ public class Main {
         final String TENANT_URL = "https://login.microsoftonline.com/8f862eed-9fbe-4938-bc19-c12025b13c2d";
         final String CALLBACK_URL = "http://localhost:8085";
 
-        PublicClientApplication pca = PublicClientApplication.builder(CLIENT_ID).authority(TENANT_URL).build();
+        MacBroker macBroker = new MacBroker.Builder().supportMac(true).build();
+        PublicClientApplication pca = PublicClientApplication.builder(CLIENT_ID).authority(TENANT_URL).broker(macBroker).build();
         InteractiveRequestParameters params = InteractiveRequestParameters.builder(URI.create(CALLBACK_URL)).build();
         IAuthenticationResult ar = pca.acquireToken(params).join();
         System.out.println("Access Token: " + ar.accessToken());
