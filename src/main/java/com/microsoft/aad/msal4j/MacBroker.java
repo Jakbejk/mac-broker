@@ -1,5 +1,6 @@
 package com.microsoft.aad.msal4j;
 
+import com.microsoft.aad.msal4j.runtime.MsalMacAuthParameters;
 import com.microsoft.aad.msal4j.runtime.MsalMacAuthResult;
 import com.microsoft.aad.msal4j.runtime.MsalMacRuntimeInterop;
 import com.microsoft.azure.javamsalruntime.AuthParameters;
@@ -88,7 +89,7 @@ public class MacBroker implements IBroker {
     public CompletableFuture<IAuthenticationResult> acquireToken(PublicClientApplication application, InteractiveRequestParameters parameters) {
         String correlationID = application.correlationId() == null ? generateCorrelationID() : application.correlationId();
         try {
-            AuthParameters.AuthParametersBuilder authParamsBuilder = new AuthParameters.AuthParametersBuilder(application.clientId(), application.authority(), String.join(" ", parameters.scopes())).redirectUri(parameters.redirectUri().toString()).additionalParameters(parameters.extraQueryParameters());
+            MsalMacAuthParameters.MsalMacAuthParametersBuilder authParamsBuilder = new MsalMacAuthParameters.MsalMacAuthParametersBuilder(application.clientId(), application.authority(), String.join(" ", parameters.scopes())).redirectUri(parameters.redirectUri().toString()).additionalParameters(parameters.extraQueryParameters());
 
             //If POP auth scheme configured, set parameters to get MSALRuntime to return POP tokens
             if (parameters.proofOfPossession() != null) {

@@ -1,6 +1,5 @@
 package com.microsoft.aad.msal4j.runtime;
 
-import com.microsoft.azure.javamsalruntime.AuthParametersHandle;
 import com.microsoft.azure.javamsalruntime.LogCallbackHandle;
 import com.sun.jna.Library;
 import com.sun.jna.Pointer;
@@ -57,7 +56,7 @@ public interface MsalMacRuntimeLibrary extends Library {
 
     // MSALRuntimeAuthParameters.h
     MsalMacErrorHandle MSALMACRUNTIME_CreateAuthParameters(
-            WString clientId, WString authority, AuthParametersHandle authParametersHandle);
+            WString clientId, WString authority, MsalMacAuthParametersHandle authParametersHandle);
 
     MsalMacErrorHandle MSALMACRUNTIME_ReleaseAuthParameters(long authParametersHandle);
 
