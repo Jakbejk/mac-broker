@@ -1,8 +1,6 @@
 package com.microsoft.aad.msal4j.runtime;
 
-import com.microsoft.aad.msal4j.IAccount;
-
-public class MsalMacAccount implements AutoCloseable, IAccount {
+public class MsalMacAccount implements AutoCloseable {
     private MsalMacAccountHandle handle;
     private String accountId;
     private String accountClientInfo;
