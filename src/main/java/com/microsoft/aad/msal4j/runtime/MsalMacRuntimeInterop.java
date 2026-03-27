@@ -12,6 +12,11 @@ import com.sun.jna.platform.win32.User32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class MsalMacRuntimeInterop {
@@ -22,7 +27,10 @@ public class MsalMacRuntimeInterop {
     // handling
     public static final MsalMacErrorHelper ERROR_HELPER;
     private static final Logger LOG = LoggerFactory.getLogger(MsalMacRuntimeInterop.class);
-    private static final String MSALMACRUNTIME_DLL_PATH = "/Volumes/Macintosh_HD/Users/user281537/Downloads/mac-broker/native/build";
+    private static final String LIB_BASENAME = "MacBrokerBridge";
+    private static final String LIB_FILENAME = System.mapLibraryName(LIB_BASENAME);
+    private static final String LIB_PATH_PROPERTY = "msalmacruntime.dll.path";
+    private static final String LIB_PATH_ENV = "MSALMACRUNTIME_DLL_PATH";
     private static LogCallbackHandle logCallbackHandle;
     private static MsalMacCallbacks.LogCallback logCallback = new MsalMacCallbacks.LogCallback();
 
@@ -112,30 +120,58 @@ public class MsalMacRuntimeInterop {
      * @return an MsalMacRuntimeLibrary instance that can be used to call into a C++ dll from Java
      */
     static MsalMacRuntimeLibrary loadMsalRuntimeLibrary() {
-        LOG.info("Loading native library for MSALRuntime interop from {}.", MSALMACRUNTIME_DLL_PATH);
+        LOG.info("Loading native library for MSALRuntime interop.");
         try {
-            if (Platform.isMac()) {
-                // Set the library path directly without using getResource()
-                System.setProperty("jna.library.path", MSALMACRUNTIME_DLL_PATH);
-                
-                if (Platform.is64Bit()) {
-                    if (Platform.isARM()) {
-                        LOG.info("Loading macOS ARM64 native library.");
-                        return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
-                    } else {
-                        LOG.info("Loading macOS x86-64 native library.");
-                        return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
-                    }
-                } else {
-                    LOG.info("Loading macOS 32-bit native library.");
-                    return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
-                }
-            } else {
+            if (!Platform.isMac()) {
                 throw new MsalInteropException("Could not detect platform, or platform was not supported.", "msalruntime_initialization_error");
             }
+
+            for (Path candidateFile : resolveLibraryCandidates()) {
+                if (Files.exists(candidateFile) && Files.isRegularFile(candidateFile)) {
+                    Path absoluteFile = candidateFile.toAbsolutePath().normalize();
+                    Path parentDir = absoluteFile.getParent();
+
+                    if (parentDir != null) {
+                        System.setProperty("jna.library.path", parentDir.toString());
+                    }
+
+                    LOG.info("Loading native library from {}", absoluteFile);
+                    return Native.load(absoluteFile.toString(), MsalMacRuntimeLibrary.class);
+                }
+            }
+
+            LOG.info("No explicit native file found, falling back to JNA name-based lookup for {}", LIB_BASENAME);
+            return Native.load(LIB_BASENAME, MsalMacRuntimeLibrary.class);
         } catch (UnsatisfiedLinkError e) {
-            LOG.error("Could not find or load MSALRuntime dylib from {}.", MSALMACRUNTIME_DLL_PATH, e);
+            LOG.error("Could not find or load MSALRuntime dylib.", e);
             throw new MsalInteropException("Could not find or load MSALRuntime dylib.", "msalruntime_initialization_error");
+        }
+    }
+
+    private static List<Path> resolveLibraryCandidates() {
+        List<Path> candidates = new ArrayList<>();
+        addPathCandidate(candidates, System.getProperty(LIB_PATH_PROPERTY));
+        addPathCandidate(candidates, System.getenv(LIB_PATH_ENV));
+
+        Path workingDir = Paths.get("").toAbsolutePath().normalize();
+        candidates.add(workingDir.resolve("native").resolve("build").resolve(LIB_FILENAME));
+        candidates.add(workingDir.resolve("native").resolve("build").resolve("MacBrokerBridge.dylib"));
+        candidates.add(workingDir.resolve("build").resolve("native").resolve(LIB_FILENAME));
+
+        return candidates;
+    }
+
+    private static void addPathCandidate(List<Path> candidates, String configuredPath) {
+        if (configuredPath == null || configuredPath.isBlank()) {
+            return;
+        }
+
+        Path path = Paths.get(configuredPath).toAbsolutePath().normalize();
+        if (Files.isDirectory(path)) {
+            candidates.add(path.resolve(LIB_FILENAME));
+            candidates.add(path.resolve("MacBrokerBridge.dylib"));
+        } else {
+            candidates.add(path);
         }
     }
 

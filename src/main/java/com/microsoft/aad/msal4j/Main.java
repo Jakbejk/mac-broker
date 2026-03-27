@@ -2,6 +2,7 @@ package com.microsoft.aad.msal4j;
 
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.Set;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
@@ -14,7 +15,7 @@ public class Main {
 
         MacBroker macBroker = new MacBroker.Builder().supportMac(true).build();
         PublicClientApplication pca = PublicClientApplication.builder(CLIENT_ID).authority(TENANT_URL).broker(macBroker).build();
-        InteractiveRequestParameters params = InteractiveRequestParameters.builder(URI.create(CALLBACK_URL)).build();
+        InteractiveRequestParameters params = InteractiveRequestParameters.builder(URI.create(CALLBACK_URL)).scopes(Set.of("User.Read")).build();
         IAuthenticationResult ar = pca.acquireToken(params).join();
         System.out.println("Access Token: " + ar.accessToken());
     }

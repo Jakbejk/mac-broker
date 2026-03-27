@@ -44,13 +44,37 @@ static dispatch_queue_t gBrokerQueue = nil;
 static NSObject *gSyncLock = nil;
 static int64_t gHandleCounter = 1000;
 
+static void ensureRuntimeStateInitialized(void);
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
 static int64_t generateHandle(void) {
+    ensureRuntimeStateInitialized();
     @synchronized(gSyncLock) {
         return gHandleCounter++;
+    }
+}
+
+static void ensureRuntimeStateInitialized(void) {
+    if (gSyncLock == nil) {
+        gSyncLock = [[NSObject alloc] init];
+    }
+
+    @synchronized(gSyncLock) {
+        if (gAsyncOperations == nil) {
+            gAsyncOperations = [NSMutableDictionary dictionary];
+            gAuthParameters = [NSMutableDictionary dictionary];
+            gAccounts = [NSMutableDictionary dictionary];
+            gAuthResults = [NSMutableDictionary dictionary];
+            gReadAccountResults = [NSMutableDictionary dictionary];
+            gSignOutResults = [NSMutableDictionary dictionary];
+            gErrors = [NSMutableDictionary dictionary];
+            gBrokerQueue = dispatch_queue_create("com.microsoft.msal.broker", DISPATCH_QUEUE_SERIAL);
+        } else if (gErrors == nil) {
+            gErrors = [NSMutableDictionary dictionary];
+        }
     }
 }
 
@@ -61,6 +85,8 @@ static void logMessage(int32_t level, const wchar_t *message) {
 }
 
 static void setError(MSALMacResponseStatus status, int64_t errorCode, int32_t tag, const char *context) {
+    ensureRuntimeStateInitialized();
+
     @synchronized(gSyncLock) {
         gLastError.status = status;
         
@@ -108,26 +134,14 @@ static wchar_t *nsstringToWstring(NSString *str) {
 
 MSALMacErrorHandle MSALMACRUNTIME_Startup(void) {
     @autoreleasepool {
+        ensureRuntimeStateInitialized();
+
         @synchronized(gSyncLock) {
-            if (gAsyncOperations == nil) {
-                gAsyncOperations = [NSMutableDictionary dictionary];
-                gAuthParameters = [NSMutableDictionary dictionary];
-                gAccounts = [NSMutableDictionary dictionary];
-                gAuthResults = [NSMutableDictionary dictionary];
-                gReadAccountResults = [NSMutableDictionary dictionary];
-                gSignOutResults = [NSMutableDictionary dictionary];
-                gErrors = [NSMutableDictionary dictionary];
-                gSyncLock = [[NSObject alloc] init];
-                gBrokerQueue = dispatch_queue_create("com.microsoft.msal.broker", DISPATCH_QUEUE_SERIAL);
-                
-                NSLog(@"[MSAL Broker] MSALRuntime startup completed successfully");
-                gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
-                return gLastError;
-            }
+            NSLog(@"[MSAL Broker] MSALRuntime startup completed successfully");
+            gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
+            return gLastError;
         }
     }
-    
-    return gLastError;
 }
 
 void MSALMACRUNTIME_Shutdown(void) {
