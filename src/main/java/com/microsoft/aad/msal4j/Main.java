@@ -1,7 +1,5 @@
 package com.microsoft.aad.msal4j;
 
-import com.microsoft.aad.msal4jbrokers.Broker;
-
 import java.net.MalformedURLException;
 import java.net.URI;
 

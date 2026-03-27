@@ -22,7 +22,7 @@ public class MsalMacRuntimeInterop {
     // handling
     public static final MsalMacErrorHelper ERROR_HELPER;
     private static final Logger LOG = LoggerFactory.getLogger(MsalMacRuntimeInterop.class);
-    private static final String MSALMACRUNTIME_DLL_PATH = "./native";
+    private static final String MSALMACRUNTIME_DLL_PATH = "/Volumes/Macintosh_HD/Users/user281537/Downloads/mac-broker/native/build";
     private static LogCallbackHandle logCallbackHandle;
     private static MsalMacCallbacks.LogCallback logCallback = new MsalMacCallbacks.LogCallback();
 
@@ -112,25 +112,30 @@ public class MsalMacRuntimeInterop {
      * @return an MsalMacRuntimeLibrary instance that can be used to call into a C++ dll from Java
      */
     static MsalMacRuntimeLibrary loadMsalRuntimeLibrary() {
+        LOG.info("Loading native library for MSALRuntime interop from {}.", MSALMACRUNTIME_DLL_PATH);
         try {
             if (Platform.isMac()) {
+                // Set the library path directly without using getResource()
+                System.setProperty("jna.library.path", MSALMACRUNTIME_DLL_PATH);
+                
                 if (Platform.is64Bit()) {
                     if (Platform.isARM()) {
-                        System.setProperty("jna.library.path", MsalMacRuntimeInterop.class.getClassLoader().getResource(MSALMACRUNTIME_DLL_PATH).toString());
-                        return Native.load(MSALMACRUNTIME_DLL_PATH + "msalruntime_mac_x64.dylib", MsalMacRuntimeLibrary.class);
+                        LOG.info("Loading macOS ARM64 native library.");
+                        return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
+                    } else {
+                        LOG.info("Loading macOS x86-64 native library.");
+                        return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
                     }
-
-                    System.setProperty("jna.library.path", MsalMacRuntimeInterop.class.getClassLoader().getResource(MSALMACRUNTIME_DLL_PATH).toString());
-                    return Native.load(MSALMACRUNTIME_DLL_PATH + "msalruntime_mac.dylib", MsalMacRuntimeLibrary.class);
                 } else {
-                    System.setProperty("jna.library.path", MsalMacRuntimeInterop.class.getClassLoader().getResource(MSALMACRUNTIME_DLL_PATH).toString());
-                    return Native.load(MSALMACRUNTIME_DLL_PATH + "msalruntime_mac_x86.dll", MsalMacRuntimeLibrary.class);
+                    LOG.info("Loading macOS 32-bit native library.");
+                    return Native.load(MSALMACRUNTIME_DLL_PATH + "/MacBrokerBridge", MsalMacRuntimeLibrary.class);
                 }
             } else {
                 throw new MsalInteropException("Could not detect platform, or platform was not supported.", "msalruntime_initialization_error");
             }
         } catch (UnsatisfiedLinkError e) {
-            throw new MsalInteropException("Could not find or load MSALRuntime dll.", "msalruntime_initialization_error");
+            LOG.error("Could not find or load MSALRuntime dylib from {}.", MSALMACRUNTIME_DLL_PATH, e);
+            throw new MsalInteropException("Could not find or load MSALRuntime dylib.", "msalruntime_initialization_error");
         }
     }
 
