@@ -82,7 +82,7 @@ public interface MsalMacRuntimeLibrary extends Library {
 
     MsalMacErrorHandle MSALMACRUNTIME_GetStatus(MsalMacErrorHandle errorHandle, IntByReference responseStatus);
 
-    MsalMacErrorHandle MSALMACRUNTIME_GetStatus(long errorHandle, IntByReference responseStatus);
+    MsalMacErrorHandle MSALMACRUNTIME_GetStatusFromInt64(long errorHandle, IntByReference responseStatus);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetErrorCode(long errorHandle, LongByReference responseErrorCode);
 
@@ -94,36 +94,36 @@ public interface MsalMacRuntimeLibrary extends Library {
     // MSALRuntimeAuthResult.h
     MsalMacErrorHandle MSALMACRUNTIME_ReleaseAuthResult(long authResultHandle);
 
-    MsalMacErrorHandle MSALMACRUNTIME_GetAccount(MsalMacAuthResultHandle authResultHandle, MsalMacAccountHandle accountHandle);
+    MsalMacErrorHandle MSALMACRUNTIME_GetAccount(long authResultHandle, MsalMacAccountHandle accountHandle);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetRawIdToken(
-            MsalMacAuthResultHandle authResultHandle, Pointer rawIdToken, IntByReference bufferSize);
+            long authResultHandle, Pointer rawIdToken, IntByReference bufferSize);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetAccessToken(
-            MsalMacAuthResultHandle authResultHandle, Pointer accessToken, IntByReference bufferSize);
+            long authResultHandle, Pointer accessToken, IntByReference bufferSize);
 
-    MsalMacErrorHandle MSALMACRUNTIME_GetError(MsalMacAuthResultHandle authResultHandle, MsalMacErrorHandle errorHandle);
+    MsalMacErrorHandle MSALMACRUNTIME_GetError(long authResultHandle, MsalMacErrorHandle errorHandle);
 
     MsalMacErrorHandle MSALMACRUNTIME_IsPopAuthorization(
-            MsalMacAuthResultHandle authResult, IntByReference isPopAuthorization);
+            long authResult, IntByReference isPopAuthorization);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetAuthorizationHeader(
-            MsalMacAuthResultHandle authResult, Pointer authHeader, IntByReference bufferSize);
+            long authResult, Pointer authHeader, IntByReference bufferSize);
 
     // MSALRuntimeReadAccountResult.h
     MsalMacErrorHandle MSALMACRUNTIME_ReleaseReadAccountResult(long readAccountResultHandle);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetReadAccount(
-            MsalMacReadAccountResultHandle readAccountResultHandle, MsalMacAccountHandle account);
+            long readAccountResultHandle, MsalMacAccountHandle account);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetReadAccountError(
-            MsalMacReadAccountResultHandle readAccountResultHandle, MsalMacErrorHandle errorHandle);
+            long readAccountResultHandle, MsalMacErrorHandle errorHandle);
 
     // MSALRuntimeSignoutResult.h
     MsalMacErrorHandle MSALMACRUNTIME_ReleaseSignOutResult(long signOutResultHandle);
 
     MsalMacErrorHandle MSALMACRUNTIME_GetSignOutError(
-            MsalMacSignOutResultHandle signOutResultHandle, MsalMacErrorHandle errorHandle);
+            long signOutResultHandle, MsalMacErrorHandle errorHandle);
 
     // MSALRuntimeLogging.h
     MsalMacErrorHandle MSALMACRUNTIME_RegisterLogCallback(

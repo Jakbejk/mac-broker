@@ -32,7 +32,8 @@ public class MsalMacReadAccountResult extends Structure {
             LOG.info("Checking read account result error.");
             MsalMacErrorHandle error = new MsalMacErrorHandle();
 
-            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetReadAccountError(this.resultHandle, error));
+            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetReadAccountError(this.resultHandle.value(), error));
 
             MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(error);
 
@@ -49,7 +50,8 @@ public class MsalMacReadAccountResult extends Structure {
     void parseAndSetAccount() {
         MsalMacAccountHandle accountHandle = new MsalMacAccountHandle();
 
-        MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetReadAccount(this.resultHandle, accountHandle));
+        MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetReadAccount(this.resultHandle.value(), accountHandle));
         this.account = new MsalMacAccount(accountHandle);
     }
 }

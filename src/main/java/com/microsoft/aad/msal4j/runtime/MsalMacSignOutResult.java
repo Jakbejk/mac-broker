@@ -30,7 +30,7 @@ public class MsalMacSignOutResult extends Structure {
             MsalMacErrorHandle error = new MsalMacErrorHandle();
 
             MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
-                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetSignOutError(this.resultHandle, error));
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetSignOutError(this.resultHandle.value(), error));
 
             MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(error);
 

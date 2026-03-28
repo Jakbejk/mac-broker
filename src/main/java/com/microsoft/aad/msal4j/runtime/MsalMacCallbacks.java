@@ -14,8 +14,8 @@ public class MsalMacCallbacks {
      * Performs any validation needed to ensure that a result from MSALRuntime can be parsed and
      * used to complete an MsalRuntimeFuture
      */
-    static void validateResult(MsalMacHandleBase handle, Integer msalRuntimeFuturesKey) {
-        if (!handle.isHandleValid()) {
+    static void validateResult(long handleValue, Integer msalRuntimeFuturesKey) {
+        if (handleValue == 0) {
             throw new MsalInteropException(
                     "Result handle sent to callback is invalid, cannot parse result.",
                     "msalinterop_error");
@@ -31,19 +31,19 @@ public class MsalMacCallbacks {
     // Use JNA's Callback interface to handle conversion between our callback classes and the
     // relevant native type
     interface AuthResultCallbackInterface extends Callback {
-        void callback(MsalMacAuthResultHandle authResult, Integer callbackData);
+        void callback(long authResult, Integer callbackData, Integer status);
     }
 
     interface ReadAccountResultCallbackInterface extends Callback {
-        void callback(MsalMacReadAccountResultHandle readAccountResult, Integer callbackData);
+        void callback(long readAccountResult, Integer callbackData, Integer status);
     }
 
     interface SignOutResultCallbackInterface extends Callback {
-        void callback(MsalMacSignOutResultHandle signOutResult, Integer callbackData);
+        void callback(long signOutResult, Integer callbackData, Integer status);
     }
 
     interface LogCallbackInterface extends Callback {
-        void callback(WString logMessage, Integer logLevel, Integer callbackData);
+        void callback(Integer logLevel, WString logMessage, Integer callbackData);
     }
 
     static class AuthResultCallback implements MsalMacCallbacks.AuthResultCallbackInterface {
@@ -53,10 +53,13 @@ public class MsalMacCallbacks {
          * and once parsed we can complete the future that is waiting for this AuthResult
          */
         @Override
-        public void callback(MsalMacAuthResultHandle authResultHandle, Integer msalRuntimeFuturesKey) {
+        public void callback(long authResultHandleValue, Integer msalRuntimeFuturesKey, Integer status) {
             try {
                 LOG.info("Starting auth result callback.");
-                MsalMacCallbacks.validateResult(authResultHandle, msalRuntimeFuturesKey);
+                MsalMacCallbacks.validateResult(authResultHandleValue, msalRuntimeFuturesKey);
+
+                MsalMacAuthResultHandle authResultHandle = new MsalMacAuthResultHandle();
+                authResultHandle.setValue(authResultHandleValue);
 
                 LOG.info("Auth result valid, parsing result and completing future.");
                 MsalMacRuntimeFuture.msalMacRuntimeFutures.get(msalRuntimeFuturesKey)
@@ -85,10 +88,13 @@ public class MsalMacCallbacks {
          * parsed we can complete the future that is waiting for this SignOutResult
          */
         @Override
-        public void callback(MsalMacSignOutResultHandle signOutResultHandle, Integer msalRuntimeFuturesKey) {
+        public void callback(long signOutResultHandleValue, Integer msalRuntimeFuturesKey, Integer status) {
             try {
                 LOG.info("Starting sign out result callback.");
-                MsalMacCallbacks.validateResult(signOutResultHandle, msalRuntimeFuturesKey);
+                MsalMacCallbacks.validateResult(signOutResultHandleValue, msalRuntimeFuturesKey);
+
+                MsalMacSignOutResultHandle signOutResultHandle = new MsalMacSignOutResultHandle();
+                signOutResultHandle.setValue(signOutResultHandleValue);
 
                 LOG.info("Sign out result valid, parsing result and completing future.");
                 MsalMacRuntimeFuture.msalMacRuntimeFutures.get(msalRuntimeFuturesKey)
@@ -117,11 +123,13 @@ public class MsalMacCallbacks {
          * parsed we can complete the future that is waiting for this ReadAccountResult
          */
         @Override
-        public void callback(
-                MsalMacReadAccountResultHandle readAccountResultHandle, Integer msalRuntimeFuturesKey) {
+        public void callback(long readAccountResultHandleValue, Integer msalRuntimeFuturesKey, Integer status) {
             try {
                 LOG.info("Starting read account callback.");
-                MsalMacCallbacks.validateResult(readAccountResultHandle, msalRuntimeFuturesKey);
+                MsalMacCallbacks.validateResult(readAccountResultHandleValue, msalRuntimeFuturesKey);
+
+                MsalMacReadAccountResultHandle readAccountResultHandle = new MsalMacReadAccountResultHandle();
+                readAccountResultHandle.setValue(readAccountResultHandleValue);
 
                 LOG.info("Read account result valid, parsing result and completing future.");
                 MsalMacRuntimeFuture.msalMacRuntimeFutures.get(msalRuntimeFuturesKey)
@@ -145,7 +153,7 @@ public class MsalMacCallbacks {
 
     public static class LogCallback implements MsalMacCallbacks.LogCallbackInterface {
         @Override
-        public void callback(WString logMessage, Integer logLevel, Integer callbackData) {
+        public void callback(Integer logLevel, WString logMessage, Integer callbackData) {
             // Just used to clearly mark any logs that are coming directly from MSALRuntime
             String indicateMsalRuntimeLog = "(MSALRuntime log) {}";
 

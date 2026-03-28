@@ -49,34 +49,18 @@ public class MsalMacHandleBase extends LongByReference implements AutoCloseable 
      */
     static String getString(MsalMacHandleBase handle, MsalMacHandleBase.GetMsalRuntimeString getMSALRuntimeString) {
         IntByReference bufferSize = new IntByReference(0);
-
-        // First, we must call the MSALRuntime API to populate the bufferSize with the size of the
-        // String
-        boolean insufficientBufferError = MsalMacRuntimeInterop.ERROR_HELPER.checkResponseStatus(
-                getMSALRuntimeString.getString(handle, null, bufferSize),
-                MsalMacRuntimeResponseStatus.MSALRUNTIME_RESPONSE_STATUS_INSUFFICIENTBUFFER);
-
-        // If we get an insufficient buffer error like we expect, then the bufferSize should have
-        // been populated and we can get the actual String
-        if (insufficientBufferError) {
-            if (bufferSize.getValue() != 0) {
-                // Create a memory location the same size as the String we want to retrieve
-                Pointer stringMemoryLocation = new Memory(Native.WCHAR_SIZE * (bufferSize.getValue()));
-
-                // Send that memory location to MSALRuntime to copy the String into
-                MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(getMSALRuntimeString.getString(handle, stringMemoryLocation, bufferSize));
-
-                // Retrieve the copied string from the memory location
-                return stringMemoryLocation.getWideString(0);
-            } else {
-                // String of size 0, nothing to retrieve
-                LOG.warn("Buffer size is 0");
-                return "";
-            }
-        } else {
-            LOG.warn("Could not parse string.");
+        // First call asks native code for required size.
+        getMSALRuntimeString.getString(handle, null, bufferSize);
+        if (bufferSize.getValue() <= 0) {
+            return "";
         }
-        return "";
+
+        // Second call copies the value into caller-managed memory.
+        Pointer stringMemoryLocation = new Memory((long) Native.WCHAR_SIZE * bufferSize.getValue());
+        MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                getMSALRuntimeString.getString(handle, stringMemoryLocation, bufferSize));
+
+        return stringMemoryLocation.getWideString(0);
     }
 
     /**

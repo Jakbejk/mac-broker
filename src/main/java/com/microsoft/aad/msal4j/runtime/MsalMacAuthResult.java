@@ -47,7 +47,8 @@ public class MsalMacAuthResult {
      */
     public String getAuthorizationHeader() {
         if (authorizationHeader == null) {
-            authorizationHeader = MsalMacHandleBase.getString(this.resultHandle, (error, authHeader, bufferSize) -> MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAuthorizationHeader(this.resultHandle, authHeader, bufferSize));
+            authorizationHeader = MsalMacHandleBase.getString(this.resultHandle, (error, authHeader, bufferSize) ->
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAuthorizationHeader(this.resultHandle.value(), authHeader, bufferSize));
         }
 
         return authorizationHeader;
@@ -59,7 +60,8 @@ public class MsalMacAuthResult {
     public boolean isPopAuthorization() {
         if (isPopAuthorization == null) {
             IntByReference isPop = new IntByReference(0);
-            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_IsPopAuthorization(this.resultHandle, isPop));
+            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_IsPopAuthorization(this.resultHandle.value(), isPop));
 
             // MSALRUNTIME_IsPopAuthorization uses bool_t, which is an alias for an int as per
             // MSALRuntimeTypes.h, and passing an int pointer result in 1=true/0=false
@@ -78,7 +80,8 @@ public class MsalMacAuthResult {
             LOG.info("Checking auth result error.");
             MsalMacErrorHandle error = new MsalMacErrorHandle();
 
-            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetError(this.resultHandle, error));
+            MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetError(this.resultHandle.value(), error));
 
             MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(error);
 
@@ -102,7 +105,8 @@ public class MsalMacAuthResult {
             this.accessToken = getAuthorizationHeader().split(" ")[1];
         } else {
             // If it is not a POP token, just get the token from the GetAccessToken API
-            this.accessToken = MsalMacHandleBase.getString(resultHandle, (authResultHandle, accessToken, bufferSize) -> MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAccessToken(this.resultHandle, accessToken, bufferSize));
+            this.accessToken = MsalMacHandleBase.getString(resultHandle, (authResultHandle, accessToken, bufferSize) ->
+                    MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAccessToken(this.resultHandle.value(), accessToken, bufferSize));
         }
     }
 
@@ -110,7 +114,8 @@ public class MsalMacAuthResult {
      * If the auth result handle has an id token, retrieve and store it in this AuthResult
      */
     void parseAndSetIdToken() {
-        this.idToken = MsalMacHandleBase.getString(resultHandle, (authResultHandle, rawIdToken, bufferSize) -> MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetRawIdToken(this.resultHandle, rawIdToken, bufferSize));
+        this.idToken = MsalMacHandleBase.getString(resultHandle, (authResultHandle, rawIdToken, bufferSize) ->
+                MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetRawIdToken(this.resultHandle.value(), rawIdToken, bufferSize));
     }
 
     /**
@@ -119,7 +124,8 @@ public class MsalMacAuthResult {
     void parseAndSetAccount() {
         MsalMacAccountHandle accountHandle = new MsalMacAccountHandle();
 
-        MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAccount(this.resultHandle, accountHandle));
+        MsalMacRuntimeInterop.ERROR_HELPER.checkMsalRuntimeError(
+                MsalMacRuntimeInterop.MSALRUNTIME_LIBRARY.MSALMACRUNTIME_GetAccount(this.resultHandle.value(), accountHandle));
 
         this.account = new MsalMacAccount(accountHandle);
     }

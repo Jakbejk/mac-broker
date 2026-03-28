@@ -333,14 +333,19 @@ public class MsalMacRuntimeInterop {
     }
 
     long checkWindowHandle(long windowHandle) {
-        if (windowHandle == 0) {
-            try {
-                return Pointer.nativeValue(User32.INSTANCE.GetAncestor(Kernel32.INSTANCE.GetConsoleWindow(), 3).getPointer());
-            } catch (NullPointerException e) {
-                throw new MsalInteropException("Window handle not provided, and could not retrieve console's window handle. Window handles must be provided if the application is not running in a Windows terminal.", "msalruntime_client_error");
-            }
-        } else {
+        if (windowHandle != 0) {
             return windowHandle;
+        }
+
+        // On macOS there is no User32/Kernel32 console window handle.
+        if (!Platform.isWindows()) {
+            return 0L;
+        }
+
+        try {
+            return Pointer.nativeValue(User32.INSTANCE.GetAncestor(Kernel32.INSTANCE.GetConsoleWindow(), 3).getPointer());
+        } catch (NullPointerException e) {
+            throw new MsalInteropException("Window handle not provided, and could not retrieve console's window handle. Window handles must be provided if the application is not running in a Windows terminal.", "msalruntime_client_error");
         }
     }
 }

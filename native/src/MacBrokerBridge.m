@@ -43,6 +43,10 @@ static NSMutableDictionary *gErrors = nil;
 static dispatch_queue_t gBrokerQueue = nil;
 static NSObject *gSyncLock = nil;
 static int64_t gHandleCounter = 1000;
+static NSString *const kMockJwt =
+    @"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik1vY2sgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+static NSString *const kMockClientInfo =
+    @"eyJ1aWQiOiIxMjM0NTY3ODkwIiwidXRpZCI6InRlc3QtdGVuYW50In0";
 
 static void ensureRuntimeStateInitialized(void);
 
@@ -64,16 +68,17 @@ static void ensureRuntimeStateInitialized(void) {
 
     @synchronized(gSyncLock) {
         if (gAsyncOperations == nil) {
-            gAsyncOperations = [NSMutableDictionary dictionary];
-            gAuthParameters = [NSMutableDictionary dictionary];
-            gAccounts = [NSMutableDictionary dictionary];
-            gAuthResults = [NSMutableDictionary dictionary];
-            gReadAccountResults = [NSMutableDictionary dictionary];
-            gSignOutResults = [NSMutableDictionary dictionary];
-            gErrors = [NSMutableDictionary dictionary];
+            // Use owned instances for global state to avoid lifetime issues without ARC.
+            gAsyncOperations = [[NSMutableDictionary alloc] init];
+            gAuthParameters = [[NSMutableDictionary alloc] init];
+            gAccounts = [[NSMutableDictionary alloc] init];
+            gAuthResults = [[NSMutableDictionary alloc] init];
+            gReadAccountResults = [[NSMutableDictionary alloc] init];
+            gSignOutResults = [[NSMutableDictionary alloc] init];
+            gErrors = [[NSMutableDictionary alloc] init];
             gBrokerQueue = dispatch_queue_create("com.microsoft.msal.broker", DISPATCH_QUEUE_SERIAL);
         } else if (gErrors == nil) {
-            gErrors = [NSMutableDictionary dictionary];
+            gErrors = [[NSMutableDictionary alloc] init];
         }
     }
 }
@@ -202,6 +207,7 @@ MSALMacErrorHandle MSALMACRUNTIME_ReadAccountByIdAsync(
                         accountData[@"accountId"] = accountIdStr;
                         accountData[@"displayName"] = @"Test User";
                         accountData[@"homeAccountId"] = [NSString stringWithFormat:@"%@.%@", accountIdStr, @"tenant-id"];
+                        accountData[@"clientInfo"] = kMockClientInfo;
                         
                         int64_t readAccountResultHandle = generateHandle();
                         gReadAccountResults[@(readAccountResultHandle)] = accountData;
@@ -258,7 +264,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInAsync(
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
                         
                         authResult[@"accessToken"] = @"mock_access_token_for_signin";
-                        authResult[@"idToken"] = @"mock_id_token_for_signin";
+                        authResult[@"idToken"] = kMockJwt;
                         authResult[@"accountId"] = accountHintStr;
                         authResult[@"scope"] = authParams[@"scopes"];
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
@@ -267,6 +273,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInAsync(
                         NSMutableDictionary *accountInfo = [NSMutableDictionary dictionary];
                         accountInfo[@"accountId"] = accountHintStr;
                         accountInfo[@"displayName"] = @"Test User";
+                        accountInfo[@"clientInfo"] = kMockClientInfo;
                         
                         authResult[@"account"] = accountInfo;
                         
@@ -322,7 +329,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInSilentlyAsync(
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
                         
                         authResult[@"accessToken"] = @"mock_access_token_silent";
-                        authResult[@"idToken"] = @"mock_id_token_silent";
+                        authResult[@"idToken"] = kMockJwt;
                         authResult[@"scope"] = authParams[@"scopes"];
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
@@ -382,7 +389,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
                         
                         authResult[@"accessToken"] = @"mock_access_token_interactive";
-                        authResult[@"idToken"] = @"mock_id_token_interactive";
+                        authResult[@"idToken"] = kMockJwt;
                         authResult[@"accountId"] = accountHintStr;
                         authResult[@"scope"] = authParams[@"scopes"];
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
@@ -391,6 +398,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
                         NSMutableDictionary *accountInfo = [NSMutableDictionary dictionary];
                         accountInfo[@"accountId"] = accountHintStr;
                         accountInfo[@"displayName"] = @"Test User Interactive";
+                        accountInfo[@"clientInfo"] = kMockClientInfo;
                         
                         authResult[@"account"] = accountInfo;
                         
@@ -441,9 +449,14 @@ MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenSilentlyAsync(
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
                         
                         authResult[@"accessToken"] = @"mock_access_token_acquired_silent";
-                        authResult[@"idToken"] = @"mock_id_token_acquired_silent";
+                        authResult[@"idToken"] = kMockJwt;
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
+                        authResult[@"account"] = gAccounts[@(accountHandle)] ?: @{
+                            @"accountId": @"mock-account-id",
+                            @"displayName": @"Test User",
+                            @"clientInfo": kMockClientInfo
+                        };
                         
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
@@ -493,9 +506,14 @@ MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenInteractivelyAsync(
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
                         
                         authResult[@"accessToken"] = @"mock_access_token_acquired_interactive";
-                        authResult[@"idToken"] = @"mock_id_token_acquired_interactive";
+                        authResult[@"idToken"] = kMockJwt;
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
+                        authResult[@"account"] = gAccounts[@(accountHandle)] ?: @{
+                            @"accountId": @"mock-account-id",
+                            @"displayName": @"Test User",
+                            @"clientInfo": kMockClientInfo
+                        };
                         
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
@@ -914,8 +932,8 @@ MSALMacErrorHandle MSALMACRUNTIME_GetContext(
     int32_t *bufferSize) {
     
     @autoreleasepool {
-        if (context == NULL || bufferSize == NULL) {
-            setError(MSALMAC_RESPONSE_STATUS_ERROR, 24, 24, "Null context or buffer size pointer");
+        if (bufferSize == NULL) {
+            setError(MSALMAC_RESPONSE_STATUS_ERROR, 24, 24, "Null buffer size pointer");
             return gLastError;
         }
         
@@ -925,7 +943,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetContext(
             wchar_t *ctx = nsstringToWstring(contextStr);
             int32_t requiredSize = (int32_t)(wcslen(ctx) + 1) * sizeof(wchar_t);
             
-            if (*bufferSize < requiredSize) {
+            if (context == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(ctx);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -986,8 +1004,8 @@ MSALMacErrorHandle MSALMACRUNTIME_GetRawIdToken(
     int32_t *bufferSize) {
     
     @autoreleasepool {
-        if (rawIdToken == NULL || bufferSize == NULL) {
-            setError(MSALMAC_RESPONSE_STATUS_ERROR, 27, 27, "Null token or buffer size pointer");
+        if (bufferSize == NULL) {
+            setError(MSALMAC_RESPONSE_STATUS_ERROR, 27, 27, "Null buffer size pointer");
             return gLastError;
         }
         
@@ -1002,7 +1020,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetRawIdToken(
             wchar_t *token = nsstringToWstring(tokenStr);
             int32_t requiredSize = (int32_t)(wcslen(token) + 1) * sizeof(wchar_t);
             
-            if (*bufferSize < requiredSize) {
+            if (rawIdToken == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(token);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1025,8 +1043,8 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAccessToken(
     int32_t *bufferSize) {
     
     @autoreleasepool {
-        if (accessToken == NULL || bufferSize == NULL) {
-            setError(MSALMAC_RESPONSE_STATUS_ERROR, 29, 29, "Null token or buffer size pointer");
+        if (bufferSize == NULL) {
+            setError(MSALMAC_RESPONSE_STATUS_ERROR, 29, 29, "Null buffer size pointer");
             return gLastError;
         }
         
@@ -1041,7 +1059,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAccessToken(
             wchar_t *token = nsstringToWstring(tokenStr);
             int32_t requiredSize = (int32_t)(wcslen(token) + 1) * sizeof(wchar_t);
             
-            if (*bufferSize < requiredSize) {
+            if (accessToken == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(token);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1106,8 +1124,8 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAuthorizationHeader(
     int32_t *bufferSize) {
     
     @autoreleasepool {
-        if (authHeader == NULL || bufferSize == NULL) {
-            setError(MSALMAC_RESPONSE_STATUS_ERROR, 33, 33, "Null header or buffer size pointer");
+        if (bufferSize == NULL) {
+            setError(MSALMAC_RESPONSE_STATUS_ERROR, 33, 33, "Null buffer size pointer");
             return gLastError;
         }
         
@@ -1118,7 +1136,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAuthorizationHeader(
             wchar_t *header = nsstringToWstring(headerStr);
             int32_t requiredSize = (int32_t)(wcslen(header) + 1) * sizeof(wchar_t);
             
-            if (*bufferSize < requiredSize) {
+            if (authHeader == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(header);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1270,7 +1288,6 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseLogCallbackHandle(int64_t logCallbackHa
             gLogCallbackContext = NULL;
         }
     }
-    
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }

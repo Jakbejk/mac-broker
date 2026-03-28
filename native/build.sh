@@ -8,6 +8,7 @@ cd "$SCRIPT_DIR"
 
 # Create build output directory
 BUILD_DIR="$SCRIPT_DIR/build"
+rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
 # Compiler settings
