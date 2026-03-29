@@ -20,7 +20,7 @@ OUTPUT_LIB="$BUILD_DIR/libMacBrokerBridge.dylib"
 # Compile flags
 CFLAGS="-fPIC -Wall -include wchar.h"
 LDFLAGS="-dynamiclib"
-FRAMEWORKS="-framework Foundation -framework Security"
+FRAMEWORKS="-framework Foundation -framework Security -framework AppKit -framework WebKit"
 
 echo "Building native library..."
 echo "Source directory: $SOURCE_DIR"

@@ -1,6 +1,9 @@
 #import "MacBrokerBridge.h"
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
+#import <AppKit/AppKit.h>
+#import <WebKit/WebKit.h>
+#import <CommonCrypto/CommonDigest.h>
 #include <wchar.h>
 
 // ============================================================================
@@ -47,8 +50,22 @@ static NSString *const kMockJwt =
     @"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik1vY2sgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 static NSString *const kMockClientInfo =
     @"eyJ1aWQiOiIxMjM0NTY3ODkwIiwidXRpZCI6InRlc3QtdGVuYW50In0";
+static NSSet<NSString *> *kReservedAuthParameterKeys = nil;
 
 static void ensureRuntimeStateInitialized(void);
+static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams, NSString *accountHint, NSString *correlationId);
+
+@interface MSALInteractiveAuthWindowController : NSWindowController <WKNavigationDelegate, NSWindowDelegate>
+@property(nonatomic, retain) WKWebView *webView;
+@property(nonatomic, retain) NSString *redirectUri;
+@property(nonatomic, retain) NSString *expectedState;
+@property(nonatomic, retain) NSDictionary *result;
+@property(nonatomic, assign) BOOL finished;
+- (instancetype)initWithAuthorizeURL:(NSURL *)authorizeURL
+                         redirectUri:(NSString *)redirectUri
+                       expectedState:(NSString *)expectedState;
+- (NSDictionary *)runModalAuthWindow;
+@end
 
 // ============================================================================
 // Helper Functions
@@ -77,6 +94,14 @@ static void ensureRuntimeStateInitialized(void) {
             gSignOutResults = [[NSMutableDictionary alloc] init];
             gErrors = [[NSMutableDictionary alloc] init];
             gBrokerQueue = dispatch_queue_create("com.microsoft.msal.broker", DISPATCH_QUEUE_SERIAL);
+            kReservedAuthParameterKeys = [[NSSet alloc] initWithArray:@[
+                @"clientId",
+                @"authority",
+                @"scopes",
+                @"redirectUri",
+                @"claims",
+                @"popParams"
+            ]];
         } else if (gErrors == nil) {
             gErrors = [[NSMutableDictionary alloc] init];
         }
@@ -131,6 +156,531 @@ static wchar_t *nsstringToWstring(NSString *str) {
     [data getBytes:wstr length:[data length]];
     wstr[[data length] / sizeof(wchar_t)] = L'\0';
     return wstr;
+}
+
+static NSString *stringValue(id obj) {
+    if (obj == nil || obj == [NSNull null]) {
+        return @"";
+    }
+    if ([obj isKindOfClass:[NSString class]]) {
+        return (NSString *)obj;
+    }
+    if ([obj respondsToSelector:@selector(stringValue)]) {
+        return [obj stringValue];
+    }
+    return [obj description];
+}
+
+static NSString *normalizeAuthority(NSString *authority) {
+    NSString *value = stringValue(authority);
+    while ([value hasSuffix:@"/"]) {
+        value = [value substringToIndex:value.length - 1];
+    }
+    return value;
+}
+
+static NSString *base64UrlEncode(NSData *data) {
+    NSString *base64 = [data base64EncodedStringWithOptions:0];
+    base64 = [base64 stringByReplacingOccurrencesOfString:@"+" withString:@"-"];
+    base64 = [base64 stringByReplacingOccurrencesOfString:@"/" withString:@"_"];
+    return [base64 stringByReplacingOccurrencesOfString:@"=" withString:@""];
+}
+
+static NSData *base64UrlDecode(NSString *value) {
+    NSString *base64 = [value stringByReplacingOccurrencesOfString:@"-" withString:@"+"];
+    base64 = [base64 stringByReplacingOccurrencesOfString:@"_" withString:@"/"];
+    NSUInteger remainder = base64.length % 4;
+    if (remainder > 0) {
+        base64 = [base64 stringByPaddingToLength:(base64.length + 4 - remainder)
+                                       withString:@"="
+                                  startingAtIndex:0];
+    }
+    return [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+}
+
+static NSString *randomBase64UrlString(NSUInteger byteCount) {
+    NSMutableData *randomData = [NSMutableData dataWithLength:byteCount];
+    int randomStatus = SecRandomCopyBytes(kSecRandomDefault, byteCount, randomData.mutableBytes);
+    if (randomStatus != errSecSuccess) {
+        return nil;
+    }
+    return base64UrlEncode(randomData);
+}
+
+static NSString *sha256Base64Url(NSString *value) {
+    NSData *data = [value dataUsingEncoding:NSUTF8StringEncoding];
+    if (data == nil) {
+        return nil;
+    }
+
+    uint8_t digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+    NSData *digestData = [NSData dataWithBytes:digest length:CC_SHA256_DIGEST_LENGTH];
+    return base64UrlEncode(digestData);
+}
+
+static NSDictionary *parseParameters(NSString *rawParameters) {
+    NSMutableDictionary *parsed = [NSMutableDictionary dictionary];
+    if (rawParameters.length == 0) {
+        return parsed;
+    }
+
+    NSArray *pairs = [rawParameters componentsSeparatedByString:@"&"];
+    for (NSString *pair in pairs) {
+        NSRange separatorRange = [pair rangeOfString:@"="];
+        if (separatorRange.location == NSNotFound) {
+            continue;
+        }
+
+        NSString *rawKey = [pair substringToIndex:separatorRange.location];
+        NSString *rawValue = [pair substringFromIndex:separatorRange.location + 1];
+        NSString *key = [rawKey stringByRemovingPercentEncoding] ?: rawKey;
+        NSString *value = [rawValue stringByRemovingPercentEncoding] ?: rawValue;
+        parsed[key] = value;
+    }
+    return parsed;
+}
+
+static NSDictionary *extractOAuthResponseParameters(NSURL *url) {
+    NSMutableDictionary *combined = [NSMutableDictionary dictionary];
+    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+
+    for (NSURLQueryItem *item in components.queryItems) {
+        if (item.name != nil && item.value != nil) {
+            combined[item.name] = item.value;
+        }
+    }
+
+    NSDictionary *fragmentParams = parseParameters(components.fragment ?: @"");
+    [combined addEntriesFromDictionary:fragmentParams];
+
+    return combined;
+}
+
+static NSDictionary *parseJwtPayload(NSString *jwt) {
+    NSArray<NSString *> *parts = [jwt componentsSeparatedByString:@"."];
+    if (parts.count < 2) {
+        return nil;
+    }
+
+    NSData *payloadData = base64UrlDecode(parts[1]);
+    if (payloadData == nil) {
+        return nil;
+    }
+
+    NSError *error = nil;
+    id payload = [NSJSONSerialization JSONObjectWithData:payloadData options:0 error:&error];
+    if (error != nil || ![payload isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    return (NSDictionary *)payload;
+}
+
+static NSString *formUrlEncode(NSString *value) {
+    NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"];
+    return [stringValue(value) stringByAddingPercentEncodingWithAllowedCharacters:allowed] ?: @"";
+}
+
+static NSDictionary *exchangeCodeForTokens(NSString *authority,
+                                           NSString *clientId,
+                                           NSString *scope,
+                                           NSString *redirectUri,
+                                           NSString *code,
+                                           NSString *codeVerifier) {
+    NSString *tokenEndpoint = [NSString stringWithFormat:@"%@/oauth2/v2.0/token", normalizeAuthority(authority)];
+    NSURL *tokenUrl = [NSURL URLWithString:tokenEndpoint];
+    if (tokenUrl == nil) {
+        return @{
+            @"status": @"error",
+            @"context": @"Invalid token endpoint URL."
+        };
+    }
+
+    NSArray<NSString *> *bodyParts = @[
+        [NSString stringWithFormat:@"client_id=%@", formUrlEncode(clientId)],
+        [NSString stringWithFormat:@"scope=%@", formUrlEncode(scope)],
+        @"grant_type=authorization_code",
+        [NSString stringWithFormat:@"code=%@", formUrlEncode(code)],
+        [NSString stringWithFormat:@"redirect_uri=%@", formUrlEncode(redirectUri)],
+        [NSString stringWithFormat:@"code_verifier=%@", formUrlEncode(codeVerifier)]
+    ];
+    NSString *bodyString = [bodyParts componentsJoinedByString:@"&"];
+    NSData *bodyData = [bodyString dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:tokenUrl];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 60.0;
+    request.HTTPBody = bodyData;
+    [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
+
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    __block NSData *responseData = nil;
+    __block NSInteger responseCode = 0;
+    __block NSError *requestError = nil;
+
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
+                                                                  completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        responseData = data;
+        requestError = error;
+        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+            responseCode = ((NSHTTPURLResponse *)response).statusCode;
+        }
+        dispatch_semaphore_signal(semaphore);
+    }];
+    [task resume];
+
+    long waitResult = dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(90 * NSEC_PER_SEC)));
+    if (waitResult != 0) {
+        return @{
+            @"status": @"error",
+            @"context": @"Timed out while exchanging authorization code for tokens."
+        };
+    }
+
+    if (requestError != nil) {
+        return @{
+            @"status": @"error",
+            @"context": [NSString stringWithFormat:@"Token request failed: %@", requestError.localizedDescription]
+        };
+    }
+
+    if (responseData == nil || responseData.length == 0) {
+        return @{
+            @"status": @"error",
+            @"context": @"Token response was empty."
+        };
+    }
+
+    NSError *jsonError = nil;
+    id payload = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:&jsonError];
+    if (jsonError != nil || ![payload isKindOfClass:[NSDictionary class]]) {
+        return @{
+            @"status": @"error",
+            @"context": @"Token response was not valid JSON."
+        };
+    }
+
+    NSDictionary *tokenPayload = (NSDictionary *)payload;
+    NSString *tokenError = stringValue(tokenPayload[@"error"]);
+    if (responseCode >= 400 || tokenError.length > 0) {
+        NSString *description = stringValue(tokenPayload[@"error_description"]);
+        NSString *context = description.length > 0 ? description : tokenError;
+        return @{
+            @"status": @"error",
+            @"context": [NSString stringWithFormat:@"Token endpoint returned error (%ld): %@", (long)responseCode, context]
+        };
+    }
+
+    return @{
+        @"status": @"success",
+        @"payload": tokenPayload
+    };
+}
+
+static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idToken, NSString *accountHint) {
+    NSDictionary *jwtPayload = parseJwtPayload(idToken);
+    NSString *preferredUsername = stringValue(jwtPayload[@"preferred_username"]);
+    NSString *upn = stringValue(jwtPayload[@"upn"]);
+    NSString *email = stringValue(jwtPayload[@"email"]);
+    NSString *oid = stringValue(jwtPayload[@"oid"]);
+    NSString *tid = stringValue(jwtPayload[@"tid"]);
+    NSString *name = stringValue(jwtPayload[@"name"]);
+
+    NSString *accountId = preferredUsername.length > 0 ? preferredUsername :
+        (upn.length > 0 ? upn : (email.length > 0 ? email : (stringValue(accountHint).length > 0 ? stringValue(accountHint) : oid)));
+    if (accountId.length == 0) {
+        accountId = @"unknown-account";
+    }
+
+    NSString *clientInfo = stringValue(tokenPayload[@"client_info"]);
+    if (clientInfo.length == 0 && oid.length > 0 && tid.length > 0) {
+        NSDictionary *fallbackClientInfo = @{
+            @"uid": oid,
+            @"utid": tid
+        };
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackClientInfo options:0 error:nil];
+        clientInfo = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    }
+    if (clientInfo.length == 0) {
+        clientInfo = kMockClientInfo;
+    }
+
+    NSString *displayName = name.length > 0 ? name : accountId;
+    return @{
+        @"accountId": accountId,
+        @"displayName": displayName,
+        @"clientInfo": clientInfo
+    };
+}
+
+@implementation MSALInteractiveAuthWindowController
+
+- (instancetype)initWithAuthorizeURL:(NSURL *)authorizeURL
+                         redirectUri:(NSString *)redirectUri
+                       expectedState:(NSString *)expectedState {
+    NSRect frame = NSMakeRect(0, 0, 520, 700);
+    NSUInteger styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
+                                                    styleMask:styleMask
+                                                      backing:NSBackingStoreBuffered
+                                                        defer:NO];
+
+    self = [super initWithWindow:window];
+    if (self) {
+        self.redirectUri = redirectUri;
+        self.expectedState = expectedState;
+        self.finished = NO;
+
+        WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+        self.webView = [[WKWebView alloc] initWithFrame:window.contentView.bounds configuration:configuration];
+        self.webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+        self.webView.navigationDelegate = self;
+        [window.contentView addSubview:self.webView];
+        window.delegate = self;
+        window.title = @"Microsoft Sign In";
+
+        NSURLRequest *request = [NSURLRequest requestWithURL:authorizeURL];
+        [self.webView loadRequest:request];
+    }
+
+    return self;
+}
+
+- (void)finishWithResult:(NSDictionary *)result {
+    if (self.finished) {
+        return;
+    }
+    self.finished = YES;
+    self.result = result;
+
+    [NSApp stopModal];
+    [self.window orderOut:nil];
+    [self.window close];
+}
+
+- (NSDictionary *)runModalAuthWindow {
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+    [self.window center];
+    [self showWindow:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp runModalForWindow:self.window];
+
+    if (self.result == nil) {
+        return @{
+            @"status": @"cancelled",
+            @"context": @"User closed the sign-in window."
+        };
+    }
+    return self.result;
+}
+
+- (void)windowWillClose:(NSNotification *)notification {
+    if (!self.finished) {
+        [self finishWithResult:@{
+            @"status": @"cancelled",
+            @"context": @"User closed the sign-in window."
+        }];
+    }
+}
+
+- (void)webView:(WKWebView *)webView
+decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
+decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+    NSURL *url = navigationAction.request.URL;
+    NSString *absoluteUrl = stringValue(url.absoluteString);
+
+    if (self.redirectUri.length > 0 && [absoluteUrl hasPrefix:self.redirectUri]) {
+        NSDictionary *oauthParameters = extractOAuthResponseParameters(url);
+        NSString *error = stringValue(oauthParameters[@"error"]);
+        NSString *errorDescription = stringValue(oauthParameters[@"error_description"]);
+
+        if (error.length > 0) {
+            NSString *status = [error isEqualToString:@"access_denied"] ? @"cancelled" : @"error";
+            [self finishWithResult:@{
+                @"status": status,
+                @"context": errorDescription.length > 0 ? errorDescription : error
+            }];
+        } else {
+            NSString *authorizationCode = stringValue(oauthParameters[@"code"]);
+            NSString *state = stringValue(oauthParameters[@"state"]);
+
+            if (authorizationCode.length == 0) {
+                [self finishWithResult:@{
+                    @"status": @"error",
+                    @"context": @"Authorization response did not contain a code."
+                }];
+            } else if (self.expectedState.length > 0 && ![state isEqualToString:self.expectedState]) {
+                [self finishWithResult:@{
+                    @"status": @"error",
+                    @"context": @"OAuth state mismatch."
+                }];
+            } else {
+                [self finishWithResult:@{
+                    @"status": @"success",
+                    @"code": authorizationCode
+                }];
+            }
+        }
+
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+
+    decisionHandler(WKNavigationActionPolicyAllow);
+}
+
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    if (!self.finished) {
+        [self finishWithResult:@{
+            @"status": @"error",
+            @"context": [NSString stringWithFormat:@"Failed to load sign-in page: %@", error.localizedDescription]
+        }];
+    }
+}
+
+@end
+
+static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams, NSString *accountHint, NSString *correlationId) {
+    NSString *clientId = stringValue(authParams[@"clientId"]);
+    NSString *authority = normalizeAuthority(authParams[@"authority"]);
+    NSString *redirectUri = [NSString stringWithFormat:@"msauth.%@://auth", clientId];
+
+    if (clientId.length == 0 || authority.length == 0 || redirectUri.length == 0) {
+        return @{
+            @"status": @"error",
+            @"context": @"Missing required auth parameters (clientId, authority, or redirectUri)."
+        };
+    }
+
+    NSArray *configuredScopes = [authParams[@"scopes"] isKindOfClass:[NSArray class]] ? authParams[@"scopes"] : @[];
+    NSMutableOrderedSet *scopes = [NSMutableOrderedSet orderedSet];
+    for (id scope in configuredScopes) {
+        NSString *scopeValue = stringValue(scope);
+        if (scopeValue.length > 0) {
+            [scopes addObject:scopeValue];
+        }
+    }
+    [scopes addObject:@"openid"];
+    [scopes addObject:@"profile"];
+    [scopes addObject:@"offline_access"];
+    NSString *scopeString = [[scopes array] componentsJoinedByString:@" "];
+
+    NSString *state = [[NSUUID UUID] UUIDString];
+    NSString *codeVerifier = randomBase64UrlString(64);
+    NSString *codeChallenge = sha256Base64Url(codeVerifier ?: @"");
+    if (codeVerifier.length == 0 || codeChallenge.length == 0) {
+        return @{
+            @"status": @"error",
+            @"context": @"Could not generate PKCE values."
+        };
+    }
+
+    NSURLComponents *authorizeComponents = [NSURLComponents componentsWithString:
+        [NSString stringWithFormat:@"%@/oauth2/v2.0/authorize", authority]];
+    if (authorizeComponents == nil) {
+        return @{
+            @"status": @"error",
+            @"context": @"Invalid authority URL."
+        };
+    }
+
+    NSMutableArray<NSURLQueryItem *> *queryItems = [NSMutableArray arrayWithArray:@[
+        [NSURLQueryItem queryItemWithName:@"client_id" value:clientId],
+        [NSURLQueryItem queryItemWithName:@"response_type" value:@"code"],
+        [NSURLQueryItem queryItemWithName:@"redirect_uri" value:redirectUri],
+        [NSURLQueryItem queryItemWithName:@"response_mode" value:@"query"],
+        [NSURLQueryItem queryItemWithName:@"scope" value:scopeString],
+        [NSURLQueryItem queryItemWithName:@"state" value:state],
+        [NSURLQueryItem queryItemWithName:@"code_challenge" value:codeChallenge],
+        [NSURLQueryItem queryItemWithName:@"code_challenge_method" value:@"S256"],
+        [NSURLQueryItem queryItemWithName:@"client_info" value:@"1"]
+    ]];
+
+    NSString *loginHint = stringValue(accountHint);
+    if (loginHint.length > 0) {
+        [queryItems addObject:[NSURLQueryItem queryItemWithName:@"login_hint" value:loginHint]];
+    }
+
+    NSString *claims = stringValue(authParams[@"claims"]);
+    if (claims.length > 0) {
+        [queryItems addObject:[NSURLQueryItem queryItemWithName:@"claims" value:claims]];
+    }
+
+    if (correlationId.length > 0) {
+        [queryItems addObject:[NSURLQueryItem queryItemWithName:@"client-request-id" value:correlationId]];
+    }
+
+    for (NSString *key in authParams) {
+        if ([kReservedAuthParameterKeys containsObject:key]) {
+            continue;
+        }
+
+        id value = authParams[key];
+        if ([value isKindOfClass:[NSString class]] && stringValue(value).length > 0) {
+            [queryItems addObject:[NSURLQueryItem queryItemWithName:key value:stringValue(value)]];
+        }
+    }
+
+    authorizeComponents.queryItems = queryItems;
+    NSURL *authorizeUrl = authorizeComponents.URL;
+    if (authorizeUrl == nil) {
+        return @{
+            @"status": @"error",
+            @"context": @"Failed to create authorization URL."
+        };
+    }
+    NSLog(@"[MSAL Broker] Broker window initialization\n\tauthorizeUrl: %@\n\tredirectUri: %@\n\tstate: %@",
+          authorizeUrl.absoluteString,
+          redirectUri,
+          state);
+    __block NSDictionary *uiResult = nil;
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        MSALInteractiveAuthWindowController *windowController = [[MSALInteractiveAuthWindowController alloc]
+            initWithAuthorizeURL:authorizeUrl
+                      redirectUri:redirectUri
+                    expectedState:state];
+        uiResult = [windowController runModalAuthWindow];
+    });
+
+    NSString *uiStatus = stringValue(uiResult[@"status"]);
+    if (![uiStatus isEqualToString:@"success"]) {
+        return uiResult ?: @{
+            @"status": @"cancelled",
+            @"context": @"User cancelled sign-in."
+        };
+    }
+
+    NSString *authorizationCode = stringValue(uiResult[@"code"]);
+    NSDictionary *tokenResult = exchangeCodeForTokens(authority, clientId, scopeString, redirectUri, authorizationCode, codeVerifier);
+    if (![stringValue(tokenResult[@"status"]) isEqualToString:@"success"]) {
+        return tokenResult;
+    }
+
+    NSDictionary *tokenPayload = tokenResult[@"payload"];
+    NSString *accessToken = stringValue(tokenPayload[@"access_token"]);
+    NSString *idToken = stringValue(tokenPayload[@"id_token"]);
+    if (accessToken.length == 0) {
+        return @{
+            @"status": @"error",
+            @"context": @"Token response did not include an access token."
+        };
+    }
+
+    NSDictionary *account = buildAccountInfo(tokenPayload, idToken, accountHint);
+    NSTimeInterval expiresIn = [stringValue(tokenPayload[@"expires_in"]) doubleValue];
+    if (expiresIn <= 0) {
+        expiresIn = 3600;
+    }
+
+    return @{
+        @"status": @"success",
+        @"accessToken": accessToken,
+        @"idToken": idToken.length > 0 ? idToken : @"",
+        @"account": account,
+        @"expiresOn": @([[NSDate date] timeIntervalSince1970] + expiresIn)
+    };
 }
 
 // ============================================================================
@@ -382,33 +932,53 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
-                    [NSThread sleepForTimeInterval:0.3];
-                    
+                    NSDictionary *authParams = nil;
                     @synchronized(gSyncLock) {
-                        NSMutableDictionary *authParams = gAuthParameters[@(authParametersHandle)];
-                        NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
-                        
-                        authResult[@"accessToken"] = @"mock_access_token_interactive";
-                        authResult[@"idToken"] = kMockJwt;
-                        authResult[@"accountId"] = accountHintStr;
-                        authResult[@"scope"] = authParams[@"scopes"];
-                        authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
-                        authResult[@"correlationId"] = correlationIdStr;
-                        
-                        NSMutableDictionary *accountInfo = [NSMutableDictionary dictionary];
-                        accountInfo[@"accountId"] = accountHintStr;
-                        accountInfo[@"displayName"] = @"Test User Interactive";
-                        accountInfo[@"clientInfo"] = kMockClientInfo;
-                        
-                        authResult[@"account"] = accountInfo;
-                        
-                        int64_t authResultHandle = generateHandle();
-                        gAuthResults[@(authResultHandle)] = authResult;
-                        
-                        callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
+                        NSDictionary *storedParams = gAuthParameters[@(authParametersHandle)];
+                        if (storedParams != nil) {
+                            authParams = [storedParams copy];
+                        }
                     }
-                    
-                    NSLog(@"[MSAL Broker] SignInInteractively completed for account: %@", accountHintStr);
+
+                    if (authParams == nil) {
+                        setError(MSALMAC_RESPONSE_STATUS_ERROR, 70, 70, "Auth parameters not found");
+                        callback(0, callbackData, MSALMAC_RESPONSE_STATUS_ERROR);
+                        return;
+                    }
+
+                    NSDictionary *interactiveResult = performInteractiveMicrosoftSignIn(authParams, accountHintStr, correlationIdStr);
+                    NSString *resultStatus = stringValue(interactiveResult[@"status"]);
+
+                    if ([resultStatus isEqualToString:@"success"]) {
+                        @synchronized(gSyncLock) {
+                            NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
+                            authResult[@"accessToken"] = stringValue(interactiveResult[@"accessToken"]);
+                            authResult[@"idToken"] = stringValue(interactiveResult[@"idToken"]);
+                            authResult[@"accountId"] = stringValue(interactiveResult[@"account"][@"accountId"]);
+                            authResult[@"scope"] = authParams[@"scopes"] ?: @[];
+                            authResult[@"expiresOn"] = interactiveResult[@"expiresOn"] ?: @([[NSDate date] timeIntervalSince1970] + 3600);
+                            authResult[@"correlationId"] = correlationIdStr;
+                            authResult[@"account"] = interactiveResult[@"account"] ?: @{
+                                @"accountId": accountHintStr.length > 0 ? accountHintStr : @"unknown-account",
+                                @"displayName": @"Microsoft User",
+                                @"clientInfo": kMockClientInfo
+                            };
+
+                            int64_t authResultHandle = generateHandle();
+                            gAuthResults[@(authResultHandle)] = authResult;
+                            callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
+                        }
+
+                        NSLog(@"[MSAL Broker] SignInInteractively completed for account: %@", stringValue(interactiveResult[@"account"][@"accountId"]));
+                    } else if ([resultStatus isEqualToString:@"cancelled"]) {
+                        NSLog(@"[MSAL Broker] Interactive sign-in cancelled");
+                        callback(0, callbackData, MSALMAC_RESPONSE_STATUS_CANCELLED);
+                    } else {
+                        NSString *context = stringValue(interactiveResult[@"context"]);
+                        setError(MSALMAC_RESPONSE_STATUS_ERROR, 71, 71, context.length > 0 ? context.UTF8String : "Interactive sign-in failed");
+                        NSLog(@"[MSAL Broker] Interactive sign-in failed: %@", context);
+                        callback(0, callbackData, MSALMAC_RESPONSE_STATUS_ERROR);
+                    }
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Interactive sign-in failed: %@", exception.reason);
                     callback(0, callbackData, MSALMAC_RESPONSE_STATUS_ERROR);
