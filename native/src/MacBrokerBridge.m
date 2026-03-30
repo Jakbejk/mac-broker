@@ -418,6 +418,10 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 - (instancetype)initWithAuthorizeURL:(NSURL *)authorizeURL
                          redirectUri:(NSString *)redirectUri
                        expectedState:(NSString *)expectedState {
+    NSLog(@"[MSAL Broker][AuthWindow] initWithAuthorizeURL started (mainThread=%@, redirectUri=%@, expectedState=%@)",
+          [NSThread isMainThread] ? @"YES" : @"NO",
+          redirectUri ?: @"",
+          expectedState ?: @"");
     NSRect frame = NSMakeRect(0, 0, 520, 700);
     NSUInteger styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
     NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
@@ -440,44 +444,66 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
         window.title = @"Microsoft Sign In";
 
         NSURLRequest *request = [NSURLRequest requestWithURL:authorizeURL];
+        NSLog(@"[MSAL Broker][AuthWindow] loading authorize URL (scheme=%@, host=%@, path=%@)",
+              authorizeURL.scheme ?: @"",
+              authorizeURL.host ?: @"",
+              authorizeURL.path ?: @"");
         [self.webView loadRequest:request];
+        NSLog(@"[MSAL Broker][AuthWindow] initWithAuthorizeURL finished");
+    } else {
+        NSLog(@"[MSAL Broker][AuthWindow] initWithAuthorizeURL failed (self is nil)");
     }
 
     return self;
 }
 
 - (void)finishWithResult:(NSDictionary *)result {
+    NSLog(@"[MSAL Broker][AuthWindow] finishWithResult called (alreadyFinished=%@, status=%@)",
+          self.finished ? @"YES" : @"NO",
+          stringValue(result[@"status"]));
     if (self.finished) {
+        NSLog(@"[MSAL Broker][AuthWindow] finishWithResult ignored because controller is already finished");
         return;
     }
     self.finished = YES;
     self.result = result;
 
+    NSLog(@"[MSAL Broker][AuthWindow] stopping modal loop and closing window");
     [NSApp stopModal];
     [self.window orderOut:nil];
     [self.window close];
+    NSLog(@"[MSAL Broker][AuthWindow] finishWithResult completed");
 }
 
 - (NSDictionary *)runModalAuthWindow {
+    NSLog(@"[MSAL Broker][AuthWindow] runModalAuthWindow started (mainThread=%@)",
+          [NSThread isMainThread] ? @"YES" : @"NO");
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
     [self.window center];
     [self showWindow:nil];
     [NSApp activateIgnoringOtherApps:YES];
+    NSLog(@"[MSAL Broker][AuthWindow] entering modal loop");
     [NSApp runModalForWindow:self.window];
+    NSLog(@"[MSAL Broker][AuthWindow] modal loop exited (hasResult=%@)", self.result != nil ? @"YES" : @"NO");
 
     if (self.result == nil) {
+        NSLog(@"[MSAL Broker][AuthWindow] returning cancelled result because no auth result was set");
         return @{
             @"status": @"cancelled",
             @"context": @"User closed the sign-in window."
         };
     }
+    NSLog(@"[MSAL Broker][AuthWindow] returning auth result with status=%@", stringValue(self.result[@"status"]));
     return self.result;
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
+    NSLog(@"[MSAL Broker][AuthWindow] windowWillClose received (finished=%@)",
+          self.finished ? @"YES" : @"NO");
     if (!self.finished) {
+        NSLog(@"[MSAL Broker][AuthWindow] window closed before completion; finishing with cancelled status");
         [self finishWithResult:@{
             @"status": @"cancelled",
             @"context": @"User closed the sign-in window."
@@ -490,14 +516,20 @@ decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
 decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     NSURL *url = navigationAction.request.URL;
     NSString *absoluteUrl = stringValue(url.absoluteString);
+    NSLog(@"[MSAL Broker][AuthWindow] decidePolicyForNavigationAction (scheme=%@, host=%@, path=%@)",
+          url.scheme ?: @"",
+          url.host ?: @"",
+          url.path ?: @"");
 
     if (self.redirectUri.length > 0 && [absoluteUrl hasPrefix:self.redirectUri]) {
+        NSLog(@"[MSAL Broker][AuthWindow] redirect URI detected; parsing OAuth response");
         NSDictionary *oauthParameters = extractOAuthResponseParameters(url);
         NSString *error = stringValue(oauthParameters[@"error"]);
         NSString *errorDescription = stringValue(oauthParameters[@"error_description"]);
 
         if (error.length > 0) {
             NSString *status = [error isEqualToString:@"access_denied"] ? @"cancelled" : @"error";
+            NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect returned error=%@ (status=%@)", error, status);
             [self finishWithResult:@{
                 @"status": status,
                 @"context": errorDescription.length > 0 ? errorDescription : error
@@ -505,18 +537,26 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
         } else {
             NSString *authorizationCode = stringValue(oauthParameters[@"code"]);
             NSString *state = stringValue(oauthParameters[@"state"]);
+            NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect returned codePresent=%@ statePresent=%@",
+                  authorizationCode.length > 0 ? @"YES" : @"NO",
+                  state.length > 0 ? @"YES" : @"NO");
 
             if (authorizationCode.length == 0) {
+                NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect missing authorization code");
                 [self finishWithResult:@{
                     @"status": @"error",
                     @"context": @"Authorization response did not contain a code."
                 }];
             } else if (self.expectedState.length > 0 && ![state isEqualToString:self.expectedState]) {
+                NSLog(@"[MSAL Broker][AuthWindow] OAuth state mismatch (expected=%@, actual=%@)",
+                      self.expectedState ?: @"",
+                      state ?: @"");
                 [self finishWithResult:@{
                     @"status": @"error",
                     @"context": @"OAuth state mismatch."
                 }];
             } else {
+                NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect validated successfully");
                 [self finishWithResult:@{
                     @"status": @"success",
                     @"code": authorizationCode
@@ -524,14 +564,37 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
             }
         }
 
+        NSLog(@"[MSAL Broker][AuthWindow] cancelling navigation because redirect URI was handled");
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }
 
+    NSLog(@"[MSAL Broker][AuthWindow] allowing navigation");
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
+- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
+    NSLog(@"[MSAL Broker][AuthWindow] webView didStartProvisionalNavigation currentURL=%@",
+          stringValue(webView.URL.absoluteString));
+}
+
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    NSLog(@"[MSAL Broker][AuthWindow] webView didFinishNavigation currentURL=%@",
+          stringValue(webView.URL.absoluteString));
+}
+
+- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"[MSAL Broker][AuthWindow] webView didFailNavigation error=%@", error.localizedDescription);
+    if (!self.finished) {
+        [self finishWithResult:@{
+            @"status": @"error",
+            @"context": [NSString stringWithFormat:@"Navigation failed on sign-in page: %@", error.localizedDescription]
+        }];
+    }
+}
+
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"[MSAL Broker][AuthWindow] webView didFailProvisionalNavigation error=%@", error.localizedDescription);
     if (!self.finished) {
         [self finishWithResult:@{
             @"status": @"error",
