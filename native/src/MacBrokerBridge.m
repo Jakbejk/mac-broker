@@ -61,6 +61,7 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
 @property(nonatomic, retain) NSString *expectedState;
 @property(nonatomic, retain) NSDictionary *result;
 @property(nonatomic, assign) BOOL finished;
+@property(nonatomic, copy) void (^completionHandler)(NSDictionary *result);
 - (instancetype)initWithAuthorizeURL:(NSURL *)authorizeURL
                          redirectUri:(NSString *)redirectUri
                        expectedState:(NSString *)expectedState;
@@ -458,6 +459,13 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 }
 
 - (void)finishWithResult:(NSDictionary *)result {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self finishWithResult:result];
+        });
+        return;
+    }
+
     NSLog(@"[MSAL Broker][AuthWindow] finishWithResult called (alreadyFinished=%@, status=%@)",
           self.finished ? @"YES" : @"NO",
           stringValue(result[@"status"]));
@@ -468,35 +476,53 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
     self.finished = YES;
     self.result = result;
 
-    NSLog(@"[MSAL Broker][AuthWindow] stopping modal loop and closing window");
-    [NSApp stopModal];
+    void (^completionHandler)(NSDictionary *) = self.completionHandler;
+    self.completionHandler = nil;
+    if (completionHandler != nil) {
+        completionHandler(result);
+    }
+
+    NSLog(@"[MSAL Broker][AuthWindow] closing window");
     [self.window orderOut:nil];
     [self.window close];
     NSLog(@"[MSAL Broker][AuthWindow] finishWithResult completed");
 }
 
 - (NSDictionary *)runModalAuthWindow {
-    NSLog(@"[MSAL Broker][AuthWindow] runModalAuthWindow started (mainThread=%@)",
+    NSLog(@"[MSAL Broker][AuthWindow] runModalAuthWindow started (mainThread=%@) and waiting for completion on broker thread",
           [NSThread isMainThread] ? @"YES" : @"NO");
-    [NSApplication sharedApplication];
-    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    __block NSDictionary *completedResult = nil;
+    dispatch_semaphore_t completionSemaphore = dispatch_semaphore_create(0);
 
-    [self.window center];
-    [self showWindow:nil];
-    [NSApp activateIgnoringOtherApps:YES];
-    NSLog(@"[MSAL Broker][AuthWindow] entering modal loop");
-    [NSApp runModalForWindow:self.window];
-    NSLog(@"[MSAL Broker][AuthWindow] modal loop exited (hasResult=%@)", self.result != nil ? @"YES" : @"NO");
+    self.completionHandler = ^(NSDictionary *result) {
+        completedResult = result;
+        dispatch_semaphore_signal(completionSemaphore);
+    };
 
-    if (self.result == nil) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSApplication sharedApplication];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+        [NSApp finishLaunching];
+
+        [self.window center];
+        [self showWindow:nil];
+        [self.window makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+        NSLog(@"[MSAL Broker][AuthWindow] auth window presented modelessly");
+    });
+
+    dispatch_semaphore_wait(completionSemaphore, DISPATCH_TIME_FOREVER);
+    NSLog(@"[MSAL Broker][AuthWindow] auth window completed (hasResult=%@)", completedResult != nil ? @"YES" : @"NO");
+
+    if (completedResult == nil) {
         NSLog(@"[MSAL Broker][AuthWindow] returning cancelled result because no auth result was set");
         return @{
             @"status": @"cancelled",
             @"context": @"User closed the sign-in window."
         };
     }
-    NSLog(@"[MSAL Broker][AuthWindow] returning auth result with status=%@", stringValue(self.result[@"status"]));
-    return self.result;
+    NSLog(@"[MSAL Broker][AuthWindow] returning auth result with status=%@", stringValue(completedResult[@"status"]));
+    return completedResult;
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -699,13 +725,21 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
           redirectUri,
           state);
     __block NSDictionary *uiResult = nil;
+    __block MSALInteractiveAuthWindowController *windowController = nil;
     dispatch_sync(dispatch_get_main_queue(), ^{
-        MSALInteractiveAuthWindowController *windowController = [[MSALInteractiveAuthWindowController alloc]
+        windowController = [[MSALInteractiveAuthWindowController alloc]
             initWithAuthorizeURL:authorizeUrl
                       redirectUri:redirectUri
                     expectedState:state];
-        uiResult = [windowController runModalAuthWindow];
     });
+    if (windowController == nil) {
+        return @{
+            @"status": @"error",
+            @"context": @"Failed to initialize the sign-in window."
+        };
+    }
+
+    uiResult = [windowController runModalAuthWindow];
 
     NSString *uiStatus = stringValue(uiResult[@"status"]);
     if (![uiStatus isEqualToString:@"success"]) {
