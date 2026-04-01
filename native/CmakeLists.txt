@@ -1,0 +1,39 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(MsalJavaBridge LANGUAGES C OBJC SWIFT)
+
+# 1. Configuration & Paths
+set(CMAKE_SWIFT_LANGUAGE_VERSION 5.0)
+set(HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/headers")
+set(SWIFT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/swift")
+# 2. Define the Library
+# We create a shared library that Java can load via System.loadLibrary()
+add_library(SwiftBridge SHARED
+    ${HEADER_DIR}/MacBrokerBridge.h
+    ${SWIFT_DIR}/MacBrokerBridge.swift
+)
+
+# 3. Compiler Search Paths
+target_include_directories(SwiftBridge PRIVATE
+    ${HEADER_DIR}
+    ${JAVA_INCLUDE_PATH}     # Ensure JNI headers are found
+    ${JAVA_INCLUDE_PATH2}
+)
+
+# 4. Swift Specific Properties
+set_target_properties(SwiftBridge PROPERTIES
+    SWIFT_MODULE_NAME "SwiftBridgeCore"
+    SWIFT_INCLUDE_DIRECTORIES "${HEADER_DIR}"
+)
+
+# 5. Bridging Header Logic
+# This allows your Swift code to "see" the Objective-C headers
+target_compile_options(SwiftBridge PRIVATE
+    $<$<COMPILE_LANGUAGE:SWIFT>:-import-objc-header;${HEADER_DIR}/Bridge.h>
+)
+
+# 6. Linking
+# Ensure we link against the necessary Swift and System frameworks
+if(APPLE)
+    target_link_libraries(SwiftBridge PRIVATE "-framework Foundation")
+endif()

@@ -47,9 +47,9 @@ static dispatch_queue_t gBrokerQueue = nil;
 static NSObject *gSyncLock = nil;
 static int64_t gHandleCounter = 1000;
 static NSString *const kMockJwt =
-    @"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik1vY2sgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+        @"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik1vY2sgVXNlciIsImlhdCI6MTUxNjIzOTAyMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 static NSString *const kMockClientInfo =
-    @"eyJ1aWQiOiIxMjM0NTY3ODkwIiwidXRpZCI6InRlc3QtdGVuYW50In0";
+        @"eyJ1aWQiOiIxMjM0NTY3ODkwIiwidXRpZCI6InRlc3QtdGVuYW50In0";
 static NSSet<NSString *> *kReservedAuthParameterKeys = nil;
 
 static void ensureRuntimeStateInitialized(void);
@@ -96,12 +96,12 @@ static void ensureRuntimeStateInitialized(void) {
             gErrors = [[NSMutableDictionary alloc] init];
             gBrokerQueue = dispatch_queue_create("com.microsoft.msal.broker", DISPATCH_QUEUE_SERIAL);
             kReservedAuthParameterKeys = [[NSSet alloc] initWithArray:@[
-                @"clientId",
-                @"authority",
-                @"scopes",
-                @"redirectUri",
-                @"claims",
-                @"popParams"
+                    @"clientId",
+                    @"authority",
+                    @"scopes",
+                    @"redirectUri",
+                    @"claims",
+                    @"popParams"
             ]];
         } else if (gErrors == nil) {
             gErrors = [[NSMutableDictionary alloc] init];
@@ -120,7 +120,7 @@ static void setError(MSALMacResponseStatus status, int64_t errorCode, int32_t ta
 
     @synchronized(gSyncLock) {
         gLastError.status = status;
-        
+
         // Store detailed error information
         NSMutableDictionary *errorDetails = [NSMutableDictionary dictionary];
         errorDetails[@"status"] = @(status);
@@ -130,7 +130,7 @@ static void setError(MSALMacResponseStatus status, int64_t errorCode, int32_t ta
             errorDetails[@"context"] = [NSString stringWithUTF8String:context];
         }
         errorDetails[@"timestamp"] = [NSDate date];
-        
+
         int64_t errorHandle = generateHandle();
         gErrors[@(errorHandle)] = errorDetails;
     }
@@ -140,9 +140,9 @@ static NSString *wstringToNSString(const wchar_t *wstr) {
     if (wstr == NULL) {
         return @"";
     }
-    return [[NSString alloc] initWithBytes:wstr 
-                                   length:wcslen(wstr) * sizeof(wchar_t)
-                                 encoding:NSUTF32LittleEndianStringEncoding];
+    return [[NSString alloc] initWithBytes:wstr
+                                    length:wcslen(wstr) * sizeof(wchar_t)
+                                  encoding:NSUTF32LittleEndianStringEncoding];
 }
 
 static wchar_t *nsstringToWstring(NSString *str) {
@@ -151,7 +151,7 @@ static wchar_t *nsstringToWstring(NSString *str) {
         empty[0] = L'\0';
         return empty;
     }
-    
+
     NSData *data = [str dataUsingEncoding:NSUTF32LittleEndianStringEncoding];
     wchar_t *wstr = malloc([data length] + sizeof(wchar_t));
     [data getBytes:wstr length:[data length]];
@@ -193,8 +193,8 @@ static NSData *base64UrlDecode(NSString *value) {
     NSUInteger remainder = base64.length % 4;
     if (remainder > 0) {
         base64 = [base64 stringByPaddingToLength:(base64.length + 4 - remainder)
-                                       withString:@"="
-                                  startingAtIndex:0];
+                                      withString:@"="
+                                 startingAtIndex:0];
     }
     return [[NSData alloc] initWithBase64EncodedString:base64 options:0];
 }
@@ -283,27 +283,27 @@ static NSString *formUrlEncode(NSString *value) {
 }
 
 static NSDictionary *exchangeCodeForTokens(NSString *authority,
-                                           NSString *clientId,
-                                           NSString *scope,
-                                           NSString *redirectUri,
-                                           NSString *code,
-                                           NSString *codeVerifier) {
+        NSString *clientId,
+        NSString *scope,
+        NSString *redirectUri,
+        NSString *code,
+        NSString *codeVerifier) {
     NSString *tokenEndpoint = [NSString stringWithFormat:@"%@/oauth2/v2.0/token", normalizeAuthority(authority)];
     NSURL *tokenUrl = [NSURL URLWithString:tokenEndpoint];
     if (tokenUrl == nil) {
         return @{
-            @"status": @"error",
-            @"context": @"Invalid token endpoint URL."
+                @"status": @"error",
+                @"context": @"Invalid token endpoint URL."
         };
     }
 
     NSArray<NSString *> *bodyParts = @[
-        [NSString stringWithFormat:@"client_id=%@", formUrlEncode(clientId)],
-        [NSString stringWithFormat:@"scope=%@", formUrlEncode(scope)],
-        @"grant_type=authorization_code",
-        [NSString stringWithFormat:@"code=%@", formUrlEncode(code)],
-        [NSString stringWithFormat:@"redirect_uri=%@", formUrlEncode(redirectUri)],
-        [NSString stringWithFormat:@"code_verifier=%@", formUrlEncode(codeVerifier)]
+            [NSString stringWithFormat:@"client_id=%@", formUrlEncode(clientId)],
+            [NSString stringWithFormat:@"scope=%@", formUrlEncode(scope)],
+            @"grant_type=authorization_code",
+            [NSString stringWithFormat:@"code=%@", formUrlEncode(code)],
+            [NSString stringWithFormat:@"redirect_uri=%@", formUrlEncode(redirectUri)],
+            [NSString stringWithFormat:@"code_verifier=%@", formUrlEncode(codeVerifier)]
     ];
     NSString *bodyString = [bodyParts componentsJoinedByString:@"&"];
     NSData *bodyData = [bodyString dataUsingEncoding:NSUTF8StringEncoding];
@@ -320,35 +320,35 @@ static NSDictionary *exchangeCodeForTokens(NSString *authority,
     __block NSError *requestError = nil;
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
-                                                                  completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        responseData = data;
-        requestError = error;
-        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-            responseCode = ((NSHTTPURLResponse *)response).statusCode;
-        }
-        dispatch_semaphore_signal(semaphore);
-    }];
+                                                                 completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                                                                     responseData = data;
+                                                                     requestError = error;
+                                                                     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+                                                                         responseCode = ((NSHTTPURLResponse *)response).statusCode;
+                                                                     }
+                                                                     dispatch_semaphore_signal(semaphore);
+                                                                 }];
     [task resume];
 
     long waitResult = dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(90 * NSEC_PER_SEC)));
     if (waitResult != 0) {
         return @{
-            @"status": @"error",
-            @"context": @"Timed out while exchanging authorization code for tokens."
+                @"status": @"error",
+                @"context": @"Timed out while exchanging authorization code for tokens."
         };
     }
 
     if (requestError != nil) {
         return @{
-            @"status": @"error",
-            @"context": [NSString stringWithFormat:@"Token request failed: %@", requestError.localizedDescription]
+                @"status": @"error",
+                @"context": [NSString stringWithFormat:@"Token request failed: %@", requestError.localizedDescription]
         };
     }
 
     if (responseData == nil || responseData.length == 0) {
         return @{
-            @"status": @"error",
-            @"context": @"Token response was empty."
+                @"status": @"error",
+                @"context": @"Token response was empty."
         };
     }
 
@@ -356,8 +356,8 @@ static NSDictionary *exchangeCodeForTokens(NSString *authority,
     id payload = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:&jsonError];
     if (jsonError != nil || ![payload isKindOfClass:[NSDictionary class]]) {
         return @{
-            @"status": @"error",
-            @"context": @"Token response was not valid JSON."
+                @"status": @"error",
+                @"context": @"Token response was not valid JSON."
         };
     }
 
@@ -367,14 +367,14 @@ static NSDictionary *exchangeCodeForTokens(NSString *authority,
         NSString *description = stringValue(tokenPayload[@"error_description"]);
         NSString *context = description.length > 0 ? description : tokenError;
         return @{
-            @"status": @"error",
-            @"context": [NSString stringWithFormat:@"Token endpoint returned error (%ld): %@", (long)responseCode, context]
+                @"status": @"error",
+                @"context": [NSString stringWithFormat:@"Token endpoint returned error (%ld): %@", (long)responseCode, context]
         };
     }
 
     return @{
-        @"status": @"success",
-        @"payload": tokenPayload
+            @"status": @"success",
+            @"payload": tokenPayload
     };
 }
 
@@ -388,7 +388,7 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
     NSString *name = stringValue(jwtPayload[@"name"]);
 
     NSString *accountId = preferredUsername.length > 0 ? preferredUsername :
-        (upn.length > 0 ? upn : (email.length > 0 ? email : (stringValue(accountHint).length > 0 ? stringValue(accountHint) : oid)));
+            (upn.length > 0 ? upn : (email.length > 0 ? email : (stringValue(accountHint).length > 0 ? stringValue(accountHint) : oid)));
     if (accountId.length == 0) {
         accountId = @"unknown-account";
     }
@@ -396,8 +396,8 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
     NSString *clientInfo = stringValue(tokenPayload[@"client_info"]);
     if (clientInfo.length == 0 && oid.length > 0 && tid.length > 0) {
         NSDictionary *fallbackClientInfo = @{
-            @"uid": oid,
-            @"utid": tid
+                @"uid": oid,
+                @"utid": tid
         };
         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackClientInfo options:0 error:nil];
         clientInfo = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
@@ -408,9 +408,9 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 
     NSString *displayName = name.length > 0 ? name : accountId;
     return @{
-        @"accountId": accountId,
-        @"displayName": displayName,
-        @"clientInfo": clientInfo
+            @"accountId": accountId,
+            @"displayName": displayName,
+            @"clientInfo": clientInfo
     };
 }
 
@@ -420,15 +420,15 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
                          redirectUri:(NSString *)redirectUri
                        expectedState:(NSString *)expectedState {
     NSLog(@"[MSAL Broker][AuthWindow] initWithAuthorizeURL started (mainThread=%@, redirectUri=%@, expectedState=%@)",
-          [NSThread isMainThread] ? @"YES" : @"NO",
-          redirectUri ?: @"",
-          expectedState ?: @"");
+            [NSThread isMainThread] ? @"YES" : @"NO",
+            redirectUri ?: @"",
+            expectedState ?: @"");
     NSRect frame = NSMakeRect(0, 0, 520, 700);
     NSUInteger styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
     NSWindow *window = [[NSWindow alloc] initWithContentRect:frame
-                                                    styleMask:styleMask
-                                                      backing:NSBackingStoreBuffered
-                                                        defer:NO];
+                                                   styleMask:styleMask
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
 
     self = [super initWithWindow:window];
     if (self) {
@@ -446,9 +446,9 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 
         NSURLRequest *request = [NSURLRequest requestWithURL:authorizeURL];
         NSLog(@"[MSAL Broker][AuthWindow] loading authorize URL (scheme=%@, host=%@, path=%@)",
-              authorizeURL.scheme ?: @"",
-              authorizeURL.host ?: @"",
-              authorizeURL.path ?: @"");
+                authorizeURL.scheme ?: @"",
+                authorizeURL.host ?: @"",
+                authorizeURL.path ?: @"");
         [self.webView loadRequest:request];
         NSLog(@"[MSAL Broker][AuthWindow] initWithAuthorizeURL finished");
     } else {
@@ -467,8 +467,8 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
     }
 
     NSLog(@"[MSAL Broker][AuthWindow] finishWithResult called (alreadyFinished=%@, status=%@)",
-          self.finished ? @"YES" : @"NO",
-          stringValue(result[@"status"]));
+            self.finished ? @"YES" : @"NO",
+            stringValue(result[@"status"]));
     if (self.finished) {
         NSLog(@"[MSAL Broker][AuthWindow] finishWithResult ignored because controller is already finished");
         return;
@@ -490,7 +490,7 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 
 - (NSDictionary *)runModalAuthWindow {
     NSLog(@"[MSAL Broker][AuthWindow] runModalAuthWindow started (mainThread=%@) and waiting for completion on broker thread",
-          [NSThread isMainThread] ? @"YES" : @"NO");
+            [NSThread isMainThread] ? @"YES" : @"NO");
     __block NSDictionary *completedResult = nil;
     dispatch_semaphore_t completionSemaphore = dispatch_semaphore_create(0);
 
@@ -517,8 +517,8 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
     if (completedResult == nil) {
         NSLog(@"[MSAL Broker][AuthWindow] returning cancelled result because no auth result was set");
         return @{
-            @"status": @"cancelled",
-            @"context": @"User closed the sign-in window."
+                @"status": @"cancelled",
+                @"context": @"User closed the sign-in window."
         };
     }
     NSLog(@"[MSAL Broker][AuthWindow] returning auth result with status=%@", stringValue(completedResult[@"status"]));
@@ -527,25 +527,25 @@ static NSDictionary *buildAccountInfo(NSDictionary *tokenPayload, NSString *idTo
 
 - (void)windowWillClose:(NSNotification *)notification {
     NSLog(@"[MSAL Broker][AuthWindow] windowWillClose received (finished=%@)",
-          self.finished ? @"YES" : @"NO");
+            self.finished ? @"YES" : @"NO");
     if (!self.finished) {
         NSLog(@"[MSAL Broker][AuthWindow] window closed before completion; finishing with cancelled status");
         [self finishWithResult:@{
-            @"status": @"cancelled",
-            @"context": @"User closed the sign-in window."
+                @"status": @"cancelled",
+                @"context": @"User closed the sign-in window."
         }];
     }
 }
 
 - (void)webView:(WKWebView *)webView
 decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
-decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+        decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     NSURL *url = navigationAction.request.URL;
     NSString *absoluteUrl = stringValue(url.absoluteString);
     NSLog(@"[MSAL Broker][AuthWindow] decidePolicyForNavigationAction (scheme=%@, host=%@, path=%@)",
-          url.scheme ?: @"",
-          url.host ?: @"",
-          url.path ?: @"");
+            url.scheme ?: @"",
+            url.host ?: @"",
+            url.path ?: @"");
 
     if (self.redirectUri.length > 0 && [absoluteUrl hasPrefix:self.redirectUri]) {
         NSLog(@"[MSAL Broker][AuthWindow] redirect URI detected; parsing OAuth response");
@@ -557,35 +557,35 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
             NSString *status = [error isEqualToString:@"access_denied"] ? @"cancelled" : @"error";
             NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect returned error=%@ (status=%@)", error, status);
             [self finishWithResult:@{
-                @"status": status,
-                @"context": errorDescription.length > 0 ? errorDescription : error
+                    @"status": status,
+                    @"context": errorDescription.length > 0 ? errorDescription : error
             }];
         } else {
             NSString *authorizationCode = stringValue(oauthParameters[@"code"]);
             NSString *state = stringValue(oauthParameters[@"state"]);
             NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect returned codePresent=%@ statePresent=%@",
-                  authorizationCode.length > 0 ? @"YES" : @"NO",
-                  state.length > 0 ? @"YES" : @"NO");
+                    authorizationCode.length > 0 ? @"YES" : @"NO",
+                    state.length > 0 ? @"YES" : @"NO");
 
             if (authorizationCode.length == 0) {
                 NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect missing authorization code");
                 [self finishWithResult:@{
-                    @"status": @"error",
-                    @"context": @"Authorization response did not contain a code."
+                        @"status": @"error",
+                        @"context": @"Authorization response did not contain a code."
                 }];
             } else if (self.expectedState.length > 0 && ![state isEqualToString:self.expectedState]) {
                 NSLog(@"[MSAL Broker][AuthWindow] OAuth state mismatch (expected=%@, actual=%@)",
-                      self.expectedState ?: @"",
-                      state ?: @"");
+                        self.expectedState ?: @"",
+                        state ?: @"");
                 [self finishWithResult:@{
-                    @"status": @"error",
-                    @"context": @"OAuth state mismatch."
+                        @"status": @"error",
+                        @"context": @"OAuth state mismatch."
                 }];
             } else {
                 NSLog(@"[MSAL Broker][AuthWindow] OAuth redirect validated successfully");
                 [self finishWithResult:@{
-                    @"status": @"success",
-                    @"code": authorizationCode
+                        @"status": @"success",
+                        @"code": authorizationCode
                 }];
             }
         }
@@ -601,20 +601,20 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
 
 - (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
     NSLog(@"[MSAL Broker][AuthWindow] webView didStartProvisionalNavigation currentURL=%@",
-          stringValue(webView.URL.absoluteString));
+            stringValue(webView.URL.absoluteString));
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     NSLog(@"[MSAL Broker][AuthWindow] webView didFinishNavigation currentURL=%@",
-          stringValue(webView.URL.absoluteString));
+            stringValue(webView.URL.absoluteString));
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     NSLog(@"[MSAL Broker][AuthWindow] webView didFailNavigation error=%@", error.localizedDescription);
     if (!self.finished) {
         [self finishWithResult:@{
-            @"status": @"error",
-            @"context": [NSString stringWithFormat:@"Navigation failed on sign-in page: %@", error.localizedDescription]
+                @"status": @"error",
+                @"context": [NSString stringWithFormat:@"Navigation failed on sign-in page: %@", error.localizedDescription]
         }];
     }
 }
@@ -623,8 +623,8 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     NSLog(@"[MSAL Broker][AuthWindow] webView didFailProvisionalNavigation error=%@", error.localizedDescription);
     if (!self.finished) {
         [self finishWithResult:@{
-            @"status": @"error",
-            @"context": [NSString stringWithFormat:@"Failed to load sign-in page: %@", error.localizedDescription]
+                @"status": @"error",
+                @"context": [NSString stringWithFormat:@"Failed to load sign-in page: %@", error.localizedDescription]
         }];
     }
 }
@@ -638,8 +638,8 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
 
     if (clientId.length == 0 || authority.length == 0 || redirectUri.length == 0) {
         return @{
-            @"status": @"error",
-            @"context": @"Missing required auth parameters (clientId, authority, or redirectUri)."
+                @"status": @"error",
+                @"context": @"Missing required auth parameters (clientId, authority, or redirectUri)."
         };
     }
 
@@ -661,30 +661,30 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
     NSString *codeChallenge = sha256Base64Url(codeVerifier ?: @"");
     if (codeVerifier.length == 0 || codeChallenge.length == 0) {
         return @{
-            @"status": @"error",
-            @"context": @"Could not generate PKCE values."
+                @"status": @"error",
+                @"context": @"Could not generate PKCE values."
         };
     }
 
     NSURLComponents *authorizeComponents = [NSURLComponents componentsWithString:
-        [NSString stringWithFormat:@"%@/oauth2/v2.0/authorize", authority]];
+            [NSString stringWithFormat:@"%@/oauth2/v2.0/authorize", authority]];
     if (authorizeComponents == nil) {
         return @{
-            @"status": @"error",
-            @"context": @"Invalid authority URL."
+                @"status": @"error",
+                @"context": @"Invalid authority URL."
         };
     }
 
     NSMutableArray<NSURLQueryItem *> *queryItems = [NSMutableArray arrayWithArray:@[
-        [NSURLQueryItem queryItemWithName:@"client_id" value:clientId],
-        [NSURLQueryItem queryItemWithName:@"response_type" value:@"code"],
-        [NSURLQueryItem queryItemWithName:@"redirect_uri" value:redirectUri],
-        [NSURLQueryItem queryItemWithName:@"response_mode" value:@"query"],
-        [NSURLQueryItem queryItemWithName:@"scope" value:scopeString],
-        [NSURLQueryItem queryItemWithName:@"state" value:state],
-        [NSURLQueryItem queryItemWithName:@"code_challenge" value:codeChallenge],
-        [NSURLQueryItem queryItemWithName:@"code_challenge_method" value:@"S256"],
-        [NSURLQueryItem queryItemWithName:@"client_info" value:@"1"]
+            [NSURLQueryItem queryItemWithName:@"client_id" value:clientId],
+            [NSURLQueryItem queryItemWithName:@"response_type" value:@"code"],
+            [NSURLQueryItem queryItemWithName:@"redirect_uri" value:redirectUri],
+            [NSURLQueryItem queryItemWithName:@"response_mode" value:@"query"],
+            [NSURLQueryItem queryItemWithName:@"scope" value:scopeString],
+            [NSURLQueryItem queryItemWithName:@"state" value:state],
+            [NSURLQueryItem queryItemWithName:@"code_challenge" value:codeChallenge],
+            [NSURLQueryItem queryItemWithName:@"code_challenge_method" value:@"S256"],
+            [NSURLQueryItem queryItemWithName:@"client_info" value:@"1"]
     ]];
 
     NSString *loginHint = stringValue(accountHint);
@@ -716,26 +716,26 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
     NSURL *authorizeUrl = authorizeComponents.URL;
     if (authorizeUrl == nil) {
         return @{
-            @"status": @"error",
-            @"context": @"Failed to create authorization URL."
+                @"status": @"error",
+                @"context": @"Failed to create authorization URL."
         };
     }
     NSLog(@"[MSAL Broker] Broker window initialization\n\tauthorizeUrl: %@\n\tredirectUri: %@\n\tstate: %@",
-          authorizeUrl.absoluteString,
-          redirectUri,
-          state);
+            authorizeUrl.absoluteString,
+            redirectUri,
+            state);
     __block NSDictionary *uiResult = nil;
     __block MSALInteractiveAuthWindowController *windowController = nil;
     dispatch_sync(dispatch_get_main_queue(), ^{
         windowController = [[MSALInteractiveAuthWindowController alloc]
-            initWithAuthorizeURL:authorizeUrl
-                      redirectUri:redirectUri
-                    expectedState:state];
+                initWithAuthorizeURL:authorizeUrl
+                         redirectUri:redirectUri
+                       expectedState:state];
     });
     if (windowController == nil) {
         return @{
-            @"status": @"error",
-            @"context": @"Failed to initialize the sign-in window."
+                @"status": @"error",
+                @"context": @"Failed to initialize the sign-in window."
         };
     }
 
@@ -744,8 +744,8 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
     NSString *uiStatus = stringValue(uiResult[@"status"]);
     if (![uiStatus isEqualToString:@"success"]) {
         return uiResult ?: @{
-            @"status": @"cancelled",
-            @"context": @"User cancelled sign-in."
+                @"status": @"cancelled",
+                @"context": @"User cancelled sign-in."
         };
     }
 
@@ -760,8 +760,8 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
     NSString *idToken = stringValue(tokenPayload[@"id_token"]);
     if (accessToken.length == 0) {
         return @{
-            @"status": @"error",
-            @"context": @"Token response did not include an access token."
+                @"status": @"error",
+                @"context": @"Token response did not include an access token."
         };
     }
 
@@ -772,11 +772,11 @@ static NSDictionary *performInteractiveMicrosoftSignIn(NSDictionary *authParams,
     }
 
     return @{
-        @"status": @"success",
-        @"accessToken": accessToken,
-        @"idToken": idToken.length > 0 ? idToken : @"",
-        @"account": account,
-        @"expiresOn": @([[NSDate date] timeIntervalSince1970] + expiresIn)
+            @"status": @"success",
+            @"accessToken": accessToken,
+            @"idToken": idToken.length > 0 ? idToken : @"",
+            @"account": account,
+            @"expiresOn": @([[NSDate date] timeIntervalSince1970] + expiresIn)
     };
 }
 
@@ -803,7 +803,7 @@ void MSALMACRUNTIME_Shutdown(void) {
             for (NSNumber *key in [gAsyncOperations allKeys]) {
                 // Operations will be cleaned up automatically
             }
-            
+
             // Clear all dictionaries
             [gAsyncOperations removeAllObjects];
             [gAuthParameters removeAllObjects];
@@ -812,42 +812,42 @@ void MSALMACRUNTIME_Shutdown(void) {
             [gReadAccountResults removeAllObjects];
             [gSignOutResults removeAllObjects];
             [gErrors removeAllObjects];
-            
+
             if (gLogCallbackContext != NULL) {
                 free(gLogCallbackContext);
                 gLogCallbackContext = NULL;
             }
-            
+
             NSLog(@"[MSAL Broker] MSALRuntime shutdown completed");
         }
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_ReadAccountByIdAsync(
-    const wchar_t *accountId,
-    const wchar_t *correlationId,
-    ReadAccountResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        const wchar_t *accountId,
+        const wchar_t *correlationId,
+        ReadAccountResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 1, 1, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         NSString *accountIdStr = wstringToNSString(accountId);
         NSString *correlationIdStr = wstringToNSString(correlationId);
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     // Simulate account lookup with a slight delay
                     [NSThread sleepForTimeInterval:0.1];
-                    
+
                     @synchronized(gSyncLock) {
                         // Create mock read account result
                         NSMutableDictionary *accountData = [NSMutableDictionary dictionary];
@@ -855,13 +855,13 @@ MSALMacErrorHandle MSALMACRUNTIME_ReadAccountByIdAsync(
                         accountData[@"displayName"] = @"Test User";
                         accountData[@"homeAccountId"] = [NSString stringWithFormat:@"%@.%@", accountIdStr, @"tenant-id"];
                         accountData[@"clientInfo"] = kMockClientInfo;
-                        
+
                         int64_t readAccountResultHandle = generateHandle();
                         gReadAccountResults[@(readAccountResultHandle)] = accountData;
-                        
+
                         callback(readAccountResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] ReadAccountById completed for account: %@", accountIdStr);
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Error reading account: %@", exception.reason);
@@ -869,67 +869,67 @@ MSALMacErrorHandle MSALMACRUNTIME_ReadAccountByIdAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SignInAsync(
-    int64_t parentWindowHandle,
-    int64_t authParametersHandle,
-    const wchar_t *correlationId,
-    const wchar_t *accountHint,
-    AuthResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        int64_t parentWindowHandle,
+        int64_t authParametersHandle,
+        const wchar_t *correlationId,
+        const wchar_t *accountHint,
+        AuthResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 2, 2, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         if (gAuthParameters[@(authParametersHandle)] == nil) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 3, 3, "Auth parameters not found");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
         NSString *accountHintStr = wstringToNSString(accountHint);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     [NSThread sleepForTimeInterval:0.2];
-                    
+
                     @synchronized(gSyncLock) {
                         NSMutableDictionary *authParams = gAuthParameters[@(authParametersHandle)];
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
-                        
+
                         authResult[@"accessToken"] = @"mock_access_token_for_signin";
                         authResult[@"idToken"] = kMockJwt;
                         authResult[@"accountId"] = accountHintStr;
                         authResult[@"scope"] = authParams[@"scopes"];
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
-                        
+
                         NSMutableDictionary *accountInfo = [NSMutableDictionary dictionary];
                         accountInfo[@"accountId"] = accountHintStr;
                         accountInfo[@"displayName"] = @"Test User";
                         accountInfo[@"clientInfo"] = kMockClientInfo;
-                        
+
                         authResult[@"account"] = accountInfo;
-                        
+
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
-                        
+
                         callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] SignIn completed for account: %@", accountHintStr);
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] SignIn failed: %@", exception.reason);
@@ -937,56 +937,56 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SignInSilentlyAsync(
-    int64_t authParametersHandle,
-    const wchar_t *correlationId,
-    AuthResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *correlationId,
+        AuthResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 4, 4, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         if (gAuthParameters[@(authParametersHandle)] == nil) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 5, 5, "Auth parameters not found");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     [NSThread sleepForTimeInterval:0.1];
-                    
+
                     @synchronized(gSyncLock) {
                         NSMutableDictionary *authParams = gAuthParameters[@(authParametersHandle)];
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
-                        
+
                         authResult[@"accessToken"] = @"mock_access_token_silent";
                         authResult[@"idToken"] = kMockJwt;
                         authResult[@"scope"] = authParams[@"scopes"];
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
-                        
+
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
-                        
+
                         callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] SignInSilently completed");
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Silent sign-in failed: %@", exception.reason);
@@ -994,38 +994,38 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInSilentlyAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
-    int64_t parentWindowHandle,
-    int64_t authParametersHandle,
-    const wchar_t *correlationId,
-    const wchar_t *accountHint,
-    AuthResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        int64_t parentWindowHandle,
+        int64_t authParametersHandle,
+        const wchar_t *correlationId,
+        const wchar_t *accountHint,
+        AuthResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 6, 6, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         if (gAuthParameters[@(authParametersHandle)] == nil) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 7, 7, "Auth parameters not found");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
         NSString *accountHintStr = wstringToNSString(accountHint);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
@@ -1056,9 +1056,9 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
                             authResult[@"expiresOn"] = interactiveResult[@"expiresOn"] ?: @([[NSDate date] timeIntervalSince1970] + 3600);
                             authResult[@"correlationId"] = correlationIdStr;
                             authResult[@"account"] = interactiveResult[@"account"] ?: @{
-                                @"accountId": accountHintStr.length > 0 ? accountHintStr : @"unknown-account",
-                                @"displayName": @"Microsoft User",
-                                @"clientInfo": kMockClientInfo
+                                    @"accountId": accountHintStr.length > 0 ? accountHintStr : @"unknown-account",
+                                    @"displayName": @"Microsoft User",
+                                    @"clientInfo": kMockClientInfo
                             };
 
                             int64_t authResultHandle = generateHandle();
@@ -1082,55 +1082,55 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenSilentlyAsync(
-    int64_t authParametersHandle,
-    const wchar_t *correlationId,
-    int64_t accountHandle,
-    AuthResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *correlationId,
+        int64_t accountHandle,
+        AuthResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 8, 8, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     [NSThread sleepForTimeInterval:0.1];
-                    
+
                     @synchronized(gSyncLock) {
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
-                        
+
                         authResult[@"accessToken"] = @"mock_access_token_acquired_silent";
                         authResult[@"idToken"] = kMockJwt;
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
                         authResult[@"account"] = gAccounts[@(accountHandle)] ?: @{
-                            @"accountId": @"mock-account-id",
-                            @"displayName": @"Test User",
-                            @"clientInfo": kMockClientInfo
+                                @"accountId": @"mock-account-id",
+                                @"displayName": @"Test User",
+                                @"clientInfo": kMockClientInfo
                         };
-                        
+
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
-                        
+
                         callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] AcquireTokenSilently completed");
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Token acquisition failed: %@", exception.reason);
@@ -1138,56 +1138,56 @@ MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenSilentlyAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenInteractivelyAsync(
-    int64_t parentWindowHandle,
-    int64_t authParametersHandle,
-    const wchar_t *correlationId,
-    int64_t accountHandle,
-    AuthResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        int64_t parentWindowHandle,
+        int64_t authParametersHandle,
+        const wchar_t *correlationId,
+        int64_t accountHandle,
+        AuthResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 9, 9, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     [NSThread sleepForTimeInterval:0.3];
-                    
+
                     @synchronized(gSyncLock) {
                         NSMutableDictionary *authResult = [NSMutableDictionary dictionary];
-                        
+
                         authResult[@"accessToken"] = @"mock_access_token_acquired_interactive";
                         authResult[@"idToken"] = kMockJwt;
                         authResult[@"expiresOn"] = @([[NSDate date] timeIntervalSince1970] + 3600);
                         authResult[@"correlationId"] = correlationIdStr;
                         authResult[@"account"] = gAccounts[@(accountHandle)] ?: @{
-                            @"accountId": @"mock-account-id",
-                            @"displayName": @"Test User",
-                            @"clientInfo": kMockClientInfo
+                                @"accountId": @"mock-account-id",
+                                @"displayName": @"Test User",
+                                @"clientInfo": kMockClientInfo
                         };
-                        
+
                         int64_t authResultHandle = generateHandle();
                         gAuthResults[@(authResultHandle)] = authResult;
-                        
+
                         callback(authResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] AcquireTokenInteractively completed");
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Interactive token acquisition failed: %@", exception.reason);
@@ -1195,47 +1195,47 @@ MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenInteractivelyAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SignOutSilentlyAsync(
-    const wchar_t *clientId,
-    const wchar_t *correlationId,
-    int64_t accountHandle,
-    SignOutResultCallback callback,
-    int32_t callbackData,
-    MSALMacAsyncHandle *asyncHandle) {
-    
+        const wchar_t *clientId,
+        const wchar_t *correlationId,
+        int64_t accountHandle,
+        SignOutResultCallback callback,
+        int32_t callbackData,
+        MSALMacAsyncHandle *asyncHandle) {
+
     @autoreleasepool {
         if (callback == NULL || asyncHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 10, 10, "Invalid callback or handle pointer");
             return gLastError;
         }
-        
+
         int64_t operationHandle = generateHandle();
         asyncHandle->value = operationHandle;
-        
+
         NSString *correlationIdStr = wstringToNSString(correlationId);
-        
+
         dispatch_async(gBrokerQueue, ^{
             @autoreleasepool {
                 @try {
                     [NSThread sleepForTimeInterval:0.1];
-                    
+
                     @synchronized(gSyncLock) {
                         NSMutableDictionary *signOutResult = [NSMutableDictionary dictionary];
                         signOutResult[@"success"] = @YES;
                         signOutResult[@"correlationId"] = correlationIdStr;
-                        
+
                         int64_t signOutResultHandle = generateHandle();
                         gSignOutResults[@(signOutResultHandle)] = signOutResult;
-                        
+
                         callback(signOutResultHandle, callbackData, MSALMAC_RESPONSE_STATUS_SUCCESS);
                     }
-                    
+
                     NSLog(@"[MSAL Broker] SignOutSilently completed");
                 } @catch (NSException *exception) {
                     NSLog(@"[MSAL Broker] Sign-out failed: %@", exception.reason);
@@ -1243,7 +1243,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignOutSilentlyAsync(
                 }
             }
         });
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
@@ -1262,10 +1262,10 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseAccount(int64_t accountHandle) {
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetAccountId(
-    int64_t accountHandle,
-    wchar_t *accountId,
-    int32_t *bufferSize) {
-    
+        int64_t accountHandle,
+        wchar_t *accountId,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *account = gAccounts[@(accountHandle)];
@@ -1273,22 +1273,22 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAccountId(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 11, 11, "Account not found");
                 return gLastError;
             }
-            
+
             NSString *idStr = account[@"accountId"] ?: @"";
             wchar_t *id = nsstringToWstring(idStr);
             int32_t requiredSize = (int32_t)(wcslen(id) + 1) * sizeof(wchar_t);
-            
+
             if (*bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(id);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(accountId, id);
             *bufferSize = requiredSize;
             free(id);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1296,10 +1296,10 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAccountId(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetClientInfo(
-    int64_t accountHandle,
-    wchar_t *clientInfo,
-    int32_t *bufferSize) {
-    
+        int64_t accountHandle,
+        wchar_t *clientInfo,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *account = gAccounts[@(accountHandle)];
@@ -1307,22 +1307,22 @@ MSALMacErrorHandle MSALMACRUNTIME_GetClientInfo(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 12, 12, "Account not found");
                 return gLastError;
             }
-            
+
             NSString *infoStr = account[@"clientInfo"] ?: @"{}";
             wchar_t *info = nsstringToWstring(infoStr);
             int32_t requiredSize = (int32_t)(wcslen(info) + 1) * sizeof(wchar_t);
-            
+
             if (*bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(info);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(clientInfo, info);
             *bufferSize = requiredSize;
             free(info);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1334,16 +1334,16 @@ MSALMacErrorHandle MSALMACRUNTIME_GetClientInfo(
 // ============================================================================
 
 MSALMacErrorHandle MSALMACRUNTIME_CreateAuthParameters(
-    const wchar_t *clientId,
-    const wchar_t *authority,
-    AuthParametersHandle *authParametersHandle) {
-    
+        const wchar_t *clientId,
+        const wchar_t *authority,
+        AuthParametersHandle *authParametersHandle) {
+
     @autoreleasepool {
         if (clientId == NULL || authority == NULL || authParametersHandle == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 13, 13, "Null parameters");
             return gLastError;
         }
-        
+
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = [NSMutableDictionary dictionary];
             params[@"clientId"] = wstringToNSString(clientId);
@@ -1351,11 +1351,11 @@ MSALMacErrorHandle MSALMACRUNTIME_CreateAuthParameters(
             params[@"scopes"] = @[];
             params[@"redirectUri"] = @"";
             params[@"claims"] = @"";
-            
+
             int64_t paramHandle = generateHandle();
             authParametersHandle->value = paramHandle;
             gAuthParameters[@(paramHandle)] = params;
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1371,9 +1371,9 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseAuthParameters(int64_t authParametersHa
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SetRequestedScopes(
-    int64_t authParametersHandle,
-    const wchar_t *scopes) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *scopes) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = gAuthParameters[@(authParametersHandle)];
@@ -1381,11 +1381,11 @@ MSALMacErrorHandle MSALMACRUNTIME_SetRequestedScopes(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 14, 14, "Auth parameters not found");
                 return gLastError;
             }
-            
+
             NSString *scopesStr = wstringToNSString(scopes);
             NSArray *scopeArray = [scopesStr componentsSeparatedByString:@" "];
             params[@"scopes"] = scopeArray;
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1393,9 +1393,9 @@ MSALMacErrorHandle MSALMACRUNTIME_SetRequestedScopes(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SetRedirectUri(
-    int64_t authParametersHandle,
-    const wchar_t *redirectUri) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *redirectUri) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = gAuthParameters[@(authParametersHandle)];
@@ -1403,9 +1403,9 @@ MSALMacErrorHandle MSALMACRUNTIME_SetRedirectUri(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 15, 15, "Auth parameters not found");
                 return gLastError;
             }
-            
+
             params[@"redirectUri"] = wstringToNSString(redirectUri);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1413,9 +1413,9 @@ MSALMacErrorHandle MSALMACRUNTIME_SetRedirectUri(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SetDecodedClaims(
-    int64_t authParametersHandle,
-    const wchar_t *claims) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *claims) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = gAuthParameters[@(authParametersHandle)];
@@ -1423,9 +1423,9 @@ MSALMacErrorHandle MSALMACRUNTIME_SetDecodedClaims(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 16, 16, "Auth parameters not found");
                 return gLastError;
             }
-            
+
             params[@"claims"] = wstringToNSString(claims);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1433,10 +1433,10 @@ MSALMacErrorHandle MSALMACRUNTIME_SetDecodedClaims(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SetAdditionalParameter(
-    int64_t authParametersHandle,
-    const wchar_t *key,
-    const wchar_t *value) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *key,
+        const wchar_t *value) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = gAuthParameters[@(authParametersHandle)];
@@ -1444,11 +1444,11 @@ MSALMacErrorHandle MSALMACRUNTIME_SetAdditionalParameter(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 17, 17, "Auth parameters not found");
                 return gLastError;
             }
-            
+
             NSString *keyStr = wstringToNSString(key);
             NSString *valueStr = wstringToNSString(value);
             params[keyStr] = valueStr;
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1456,12 +1456,12 @@ MSALMacErrorHandle MSALMACRUNTIME_SetAdditionalParameter(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_SetPopParams(
-    int64_t authParametersHandle,
-    const wchar_t *httpMethod,
-    const wchar_t *uriHost,
-    const wchar_t *uriPath,
-    const wchar_t *nonce) {
-    
+        int64_t authParametersHandle,
+        const wchar_t *httpMethod,
+        const wchar_t *uriHost,
+        const wchar_t *uriPath,
+        const wchar_t *nonce) {
+
     @autoreleasepool {
         @synchronized(gSyncLock) {
             NSMutableDictionary *params = gAuthParameters[@(authParametersHandle)];
@@ -1469,15 +1469,15 @@ MSALMacErrorHandle MSALMACRUNTIME_SetPopParams(
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 18, 18, "Auth parameters not found");
                 return gLastError;
             }
-            
+
             NSMutableDictionary *popParams = [NSMutableDictionary dictionary];
             popParams[@"httpMethod"] = wstringToNSString(httpMethod);
             popParams[@"uriHost"] = wstringToNSString(uriHost);
             popParams[@"uriPath"] = wstringToNSString(uriPath);
             popParams[@"nonce"] = wstringToNSString(nonce);
-            
+
             params[@"popParams"] = popParams;
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1501,7 +1501,7 @@ MSALMacErrorHandle MSALMACRUNTIME_CancelAsyncOperation(MSALMacAsyncHandle *async
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 19, 19, "Null async handle");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         [gAsyncOperations removeObjectForKey:@(asyncHandle->value)];
     }
@@ -1522,105 +1522,105 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseError(int64_t errorHandle) {
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetStatus(
-    MSALMacErrorHandle errorHandle,
-    MSALMacResponseStatus *responseStatus) {
-    
+        MSALMacErrorHandle errorHandle,
+        MSALMacResponseStatus *responseStatus) {
+
     if (responseStatus == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 20, 20, "Null response status pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *error = gErrors[@(errorHandle.status)];
         *responseStatus = error ? [error[@"status"] intValue] : MSALMAC_RESPONSE_STATUS_SUCCESS;
     }
-    
+
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetStatusFromInt64(
-    int64_t errorHandle,
-    MSALMacResponseStatus *responseStatus) {
-    
+        int64_t errorHandle,
+        MSALMacResponseStatus *responseStatus) {
+
     if (responseStatus == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 21, 21, "Null response status pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *error = gErrors[@(errorHandle)];
         *responseStatus = error ? [error[@"status"] intValue] : MSALMAC_RESPONSE_STATUS_SUCCESS;
     }
-    
+
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetErrorCode(
-    int64_t errorHandle,
-    int64_t *responseErrorCode) {
-    
+        int64_t errorHandle,
+        int64_t *responseErrorCode) {
+
     if (responseErrorCode == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 22, 22, "Null error code pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *error = gErrors[@(errorHandle)];
         *responseErrorCode = error ? [error[@"code"] longLongValue] : 0;
     }
-    
+
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetTag(
-    int64_t errorHandle,
-    int32_t *responseErrorTag) {
-    
+        int64_t errorHandle,
+        int32_t *responseErrorTag) {
+
     if (responseErrorTag == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 23, 23, "Null error tag pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *error = gErrors[@(errorHandle)];
         *responseErrorTag = error ? [error[@"tag"] intValue] : 0;
     }
-    
+
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetContext(
-    MSALMacErrorHandle errorHandle,
-    wchar_t *context,
-    int32_t *bufferSize) {
-    
+        MSALMacErrorHandle errorHandle,
+        wchar_t *context,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         if (bufferSize == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 24, 24, "Null buffer size pointer");
             return gLastError;
         }
-        
+
         @synchronized(gSyncLock) {
             NSMutableDictionary *error = gErrors[@(errorHandle.status)];
             NSString *contextStr = error[@"context"] ?: @"";
             wchar_t *ctx = nsstringToWstring(contextStr);
             int32_t requiredSize = (int32_t)(wcslen(ctx) + 1) * sizeof(wchar_t);
-            
+
             if (context == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(ctx);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(context, ctx);
             *bufferSize = requiredSize;
             free(ctx);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1640,64 +1640,64 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseAuthResult(int64_t authResultHandle) {
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetAccount(
-    MSALMacAuthResultHandle authResultHandle,
-    MSALMacAccountHandle *accountHandle) {
-    
+        MSALMacAuthResultHandle authResultHandle,
+        MSALMacAccountHandle *accountHandle) {
+
     if (accountHandle == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 25, 25, "Null account handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *authResult = gAuthResults[@(authResultHandle.value)];
         if (authResult == nil) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 26, 26, "Auth result not found");
             return gLastError;
         }
-        
+
         NSMutableDictionary *accountInfo = authResult[@"account"];
         int64_t acctHandle = generateHandle();
         gAccounts[@(acctHandle)] = accountInfo ?: [NSMutableDictionary dictionary];
         accountHandle->value = acctHandle;
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetRawIdToken(
-    MSALMacAuthResultHandle authResultHandle,
-    wchar_t *rawIdToken,
-    int32_t *bufferSize) {
-    
+        MSALMacAuthResultHandle authResultHandle,
+        wchar_t *rawIdToken,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         if (bufferSize == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 27, 27, "Null buffer size pointer");
             return gLastError;
         }
-        
+
         @synchronized(gSyncLock) {
             NSMutableDictionary *authResult = gAuthResults[@(authResultHandle.value)];
             if (authResult == nil) {
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 28, 28, "Auth result not found");
                 return gLastError;
             }
-            
+
             NSString *tokenStr = authResult[@"idToken"] ?: @"";
             wchar_t *token = nsstringToWstring(tokenStr);
             int32_t requiredSize = (int32_t)(wcslen(token) + 1) * sizeof(wchar_t);
-            
+
             if (rawIdToken == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(token);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(rawIdToken, token);
             *bufferSize = requiredSize;
             free(token);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1705,38 +1705,38 @@ MSALMacErrorHandle MSALMACRUNTIME_GetRawIdToken(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetAccessToken(
-    MSALMacAuthResultHandle authResultHandle,
-    wchar_t *accessToken,
-    int32_t *bufferSize) {
-    
+        MSALMacAuthResultHandle authResultHandle,
+        wchar_t *accessToken,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         if (bufferSize == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 29, 29, "Null buffer size pointer");
             return gLastError;
         }
-        
+
         @synchronized(gSyncLock) {
             NSMutableDictionary *authResult = gAuthResults[@(authResultHandle.value)];
             if (authResult == nil) {
                 setError(MSALMAC_RESPONSE_STATUS_ERROR, 30, 30, "Auth result not found");
                 return gLastError;
             }
-            
+
             NSString *tokenStr = authResult[@"accessToken"] ?: @"";
             wchar_t *token = nsstringToWstring(tokenStr);
             int32_t requiredSize = (int32_t)(wcslen(token) + 1) * sizeof(wchar_t);
-            
+
             if (accessToken == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(token);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(accessToken, token);
             *bufferSize = requiredSize;
             free(token);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1744,14 +1744,14 @@ MSALMacErrorHandle MSALMACRUNTIME_GetAccessToken(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetError(
-    MSALMacAuthResultHandle authResultHandle,
-    MSALMacErrorHandleValue *errorHandle) {
-    
+        MSALMacAuthResultHandle authResultHandle,
+        MSALMacErrorHandleValue *errorHandle) {
+
     if (errorHandle == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 31, 31, "Null error handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *authResult = gAuthResults[@(authResultHandle.value)];
         if (authResult == nil || authResult[@"error"] == nil) {
@@ -1759,7 +1759,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetError(
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
-        
+
         int64_t errHandle = generateHandle();
         errorHandle->value = errHandle;
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1768,52 +1768,52 @@ MSALMacErrorHandle MSALMACRUNTIME_GetError(
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_IsPopAuthorization(
-    MSALMacAuthResultHandle authResult,
-    int32_t *isPopAuthorization) {
-    
+        MSALMacAuthResultHandle authResult,
+        int32_t *isPopAuthorization) {
+
     if (isPopAuthorization == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 32, 32, "Null PoP flag pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *result = gAuthResults[@(authResult.value)];
         *isPopAuthorization = (result[@"popParams"] != nil) ? 1 : 0;
     }
-    
+
     gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
     return gLastError;
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetAuthorizationHeader(
-    MSALMacAuthResultHandle authResult,
-    wchar_t *authHeader,
-    int32_t *bufferSize) {
-    
+        MSALMacAuthResultHandle authResult,
+        wchar_t *authHeader,
+        int32_t *bufferSize) {
+
     @autoreleasepool {
         if (bufferSize == NULL) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 33, 33, "Null buffer size pointer");
             return gLastError;
         }
-        
+
         @synchronized(gSyncLock) {
             NSMutableDictionary *result = gAuthResults[@(authResult.value)];
             NSString *token = result[@"accessToken"] ?: @"";
             NSString *headerStr = [NSString stringWithFormat:@"Bearer %@", token];
             wchar_t *header = nsstringToWstring(headerStr);
             int32_t requiredSize = (int32_t)(wcslen(header) + 1) * sizeof(wchar_t);
-            
+
             if (authHeader == NULL || *bufferSize < requiredSize) {
                 *bufferSize = requiredSize;
                 free(header);
                 gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
                 return gLastError;
             }
-            
+
             wcscpy(authHeader, header);
             *bufferSize = requiredSize;
             free(header);
-            
+
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
@@ -1833,39 +1833,39 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseReadAccountResult(int64_t readAccountRe
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetReadAccount(
-    MSALMacReadAccountResultHandle readAccountResultHandle,
-    MSALMacAccountHandle *account) {
-    
+        MSALMacReadAccountResultHandle readAccountResultHandle,
+        MSALMacAccountHandle *account) {
+
     if (account == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 34, 34, "Null account handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *readResult = gReadAccountResults[@(readAccountResultHandle.value)];
         if (readResult == nil) {
             setError(MSALMAC_RESPONSE_STATUS_ERROR, 35, 35, "Read account result not found");
             return gLastError;
         }
-        
+
         int64_t acctHandle = generateHandle();
         gAccounts[@(acctHandle)] = readResult;
         account->value = acctHandle;
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetReadAccountError(
-    MSALMacReadAccountResultHandle readAccountResultHandle,
-    MSALMacErrorHandleValue *errorHandle) {
-    
+        MSALMacReadAccountResultHandle readAccountResultHandle,
+        MSALMacErrorHandleValue *errorHandle) {
+
     if (errorHandle == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 36, 36, "Null error handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *readResult = gReadAccountResults[@(readAccountResultHandle.value)];
         if (readResult == nil || readResult[@"error"] == nil) {
@@ -1873,7 +1873,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetReadAccountError(
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
-        
+
         int64_t errHandle = generateHandle();
         errorHandle->value = errHandle;
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1894,14 +1894,14 @@ MSALMacErrorHandle MSALMACRUNTIME_ReleaseSignOutResult(int64_t signOutResultHand
 }
 
 MSALMacErrorHandle MSALMACRUNTIME_GetSignOutError(
-    MSALMacSignOutResultHandle signOutResultHandle,
-    MSALMacErrorHandleValue *errorHandle) {
-    
+        MSALMacSignOutResultHandle signOutResultHandle,
+        MSALMacErrorHandleValue *errorHandle) {
+
     if (errorHandle == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 37, 37, "Null error handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         NSMutableDictionary *signOutResult = gSignOutResults[@(signOutResultHandle.value)];
         if (signOutResult == nil || signOutResult[@"error"] == nil) {
@@ -1909,7 +1909,7 @@ MSALMacErrorHandle MSALMACRUNTIME_GetSignOutError(
             gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
             return gLastError;
         }
-        
+
         int64_t errHandle = generateHandle();
         errorHandle->value = errHandle;
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
@@ -1922,27 +1922,27 @@ MSALMacErrorHandle MSALMACRUNTIME_GetSignOutError(
 // ============================================================================
 
 MSALMacErrorHandle MSALMACRUNTIME_RegisterLogCallback(
-    LogCallback callback,
-    int32_t callbackData,
-    LogCallbackHandle *logCallbackHandle) {
-    
+        LogCallback callback,
+        int32_t callbackData,
+        LogCallbackHandle *logCallbackHandle) {
+
     if (callback == NULL || logCallbackHandle == NULL) {
         setError(MSALMAC_RESPONSE_STATUS_ERROR, 38, 38, "Null callback or handle pointer");
         return gLastError;
     }
-    
+
     @synchronized(gSyncLock) {
         if (gLogCallbackContext != NULL) {
             free(gLogCallbackContext);
         }
-        
+
         gLogCallbackContext = malloc(sizeof(LogCallbackContext));
         gLogCallbackContext->callback = callback;
         gLogCallbackContext->callbackData = callbackData;
-        
+
         int64_t logHandle = generateHandle();
         logCallbackHandle->value = logHandle;
-        
+
         gLastError.status = MSALMAC_RESPONSE_STATUS_SUCCESS;
         return gLastError;
     }
