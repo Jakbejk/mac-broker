@@ -8,9 +8,10 @@ set(CMAKE_OBJC_STANDARD 11)
 
 # Create the executable
 add_executable(Msal4JMacRuntime
-        src/main.m
         src/Msal4JRuntime.m
         src/Msal4JRuntimeWindowController.m
+        # Samples
+        src/samples/ReceiveAuthCode.m
 )
 
 include_directories(src/headers)

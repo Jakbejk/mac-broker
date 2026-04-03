@@ -12,6 +12,7 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
 
 @property (nonatomic, copy) void (^completionHandler)(NSString *_Nullable, NSError *_Nullable);
 @property (nonatomic, strong) WKWebView *webView;
+@property (nonatomic, assign) Msal4JPromptBehavior promptBehavior;
 /** Guards against calling the completion handler more than once. */
 @property (nonatomic, assign) BOOL didComplete;
 
@@ -27,6 +28,7 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
 
 - (instancetype)initWithAuthURL:(NSString *)authURL
                     redirectURI:(NSString *)redirectURI
+                 promptBehavior:(Msal4JPromptBehavior)promptBehavior
               completionHandler:(void (^)(NSString *_Nullable, NSError *_Nullable))completionHandler {
     NSWindow *window = [[NSWindow alloc]
         initWithContentRect:NSMakeRect(0, 0, 480, 640)
@@ -39,6 +41,7 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
 
     _authURL           = [authURL copy];
     _redirectURI       = [redirectURI copy];
+    _promptBehavior    = promptBehavior;
     _completionHandler = [completionHandler copy];
     _didComplete       = NO;
 
@@ -58,9 +61,17 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
     [super showWindow:sender];
     [self.window makeFirstResponder:self.webView];
 
-    NSURL *url = [NSURL URLWithString:self.authURL];
+    NSString *urlString = self.authURL;
+    NSString *promptValue = [self p_promptValueForBehavior:self.promptBehavior];
+    if (promptValue) {
+        NSString *separator = ([urlString containsString:@"?"] ? @"&" : @"?");
+        urlString = [urlString stringByAppendingFormat:@"%@prompt=%@", separator, promptValue];
+        NSLog(@"[Msal4JRuntimeWindowController] Appended prompt=%@.", promptValue);
+    }
+
+    NSURL *url = [NSURL URLWithString:urlString];
     if (!url) {
-        NSLog(@"[Msal4JRuntimeWindowController] Invalid authURL: %@", self.authURL);
+        NSLog(@"[Msal4JRuntimeWindowController] Invalid authURL: %@", urlString);
         NSError *error = [NSError errorWithDomain:kErrorDomain
                                              code:kErrorCodeNoAuthCode
                                          userInfo:@{NSLocalizedDescriptionKey:
@@ -150,6 +161,19 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
     self.window.title    = @"Sign In";
     self.window.delegate = self;
     [self.window center];
+}
+
+/** Returns the OAuth2 prompt string for the given behavior, or nil to omit the parameter. */
+- (nullable NSString *)p_promptValueForBehavior:(Msal4JPromptBehavior)behavior {
+    switch (behavior) {
+        case Msal4JPromptBehaviorLogin:         return @"login";
+        case Msal4JPromptBehaviorSelectAccount: return @"select_account";
+        case Msal4JPromptBehaviorConsent:       return @"consent";
+        case Msal4JPromptBehaviorNone:          return @"none";
+        case Msal4JPromptBehaviorCreate:        return @"create";
+        case Msal4JPromptBehaviorDefault:
+        default:                                return nil;
+    }
 }
 
 /** Extracts the `code` query parameter from the redirect URL. */
