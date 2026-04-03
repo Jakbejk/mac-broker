@@ -1,4 +1,0 @@
-module CMacBroker [system] {
-    header "headers/MacBrokerBridge.h"
-    export *
-}
