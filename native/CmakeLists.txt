@@ -6,24 +6,37 @@ project(Msal4JMacRuntime LANGUAGES OBJC C)
 # Set the standard (optional but recommended)
 set(CMAKE_OBJC_STANDARD 11)
 
-# Create the executable
-add_executable(Msal4JMacRuntime
-        src/Msal4JRuntime.m
-        src/Msal4JRuntimeWindowController.m
-        # Samples
-        src/samples/ReceiveAuthCode.m
-)
-
 include_directories(src/headers)
 
+# Shared library sources (no main)
+set(RUNTIME_SOURCES
+        src/Msal4JRuntime.m
+        src/Msal4JRuntimeWindowController.m
+        src/Msal4JTokenExchange.m
+)
 
 if(APPLE)
     find_library(FOUNDATION_FRAMEWORK Foundation)
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(WEBKIT_FRAMEWORK WebKit)
-    target_link_libraries(Msal4JMacRuntime PRIVATE
-            ${FOUNDATION_FRAMEWORK}
-            ${COCOA_FRAMEWORK}
-            ${WEBKIT_FRAMEWORK}
-    )
+endif()
+
+# ── Sample: receive auth code only ─────────────────────────────────────────
+add_executable(ReceiveAuthCode
+        ${RUNTIME_SOURCES}
+        src/samples/ReceiveAuthCode.m
+)
+# ── Sample: receive auth code then exchange for token set ──────────────────
+add_executable(ExchangeCodeForTokens
+        ${RUNTIME_SOURCES}
+        src/samples/ExchangeCodeForTokens.m
+)
+
+
+if(APPLE)
+    target_link_libraries(ExchangeCodeForTokens PRIVATE
+            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
+
+    target_link_libraries(ReceiveAuthCode PRIVATE
+            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
 endif()
