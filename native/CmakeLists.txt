@@ -13,6 +13,8 @@ set(RUNTIME_SOURCES
         src/Msal4JRuntime.m
         src/Msal4JRuntimeWindowController.m
         src/Msal4JTokenExchange.m
+        src/headers/MacBrokerBridge.h
+        src/MacBrokerBridge.m
 )
 
 if(APPLE)
