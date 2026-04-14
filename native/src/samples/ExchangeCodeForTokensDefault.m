@@ -6,7 +6,7 @@
 int main(int argc, const char * argv[]) {
     @autoreleasepool {
         SamplePrepareForegroundApp();
-        NSString *authURL = SampleAuthURL(YES);
+        NSString *authURL = SampleAuthURL();
         NSString *tokenEndpoint = SampleTokenEndpoint();
 
         Msal4JTokenExchange *exchange = [[Msal4JTokenExchange alloc]
