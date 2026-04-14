@@ -27,10 +27,10 @@ public class MsalMacRuntimeInterop {
     // handling
     public static final MsalMacErrorHelper ERROR_HELPER;
     private static final Logger LOG = LoggerFactory.getLogger(MsalMacRuntimeInterop.class);
-    private static final String LIB_BASENAME = "MacBrokerBridge";
+    private static final String LIB_BASENAME = "libmsal4j_mac_broker_bridge";
     private static final String LIB_FILENAME = System.mapLibraryName(LIB_BASENAME);
-    private static final String LIB_PATH_PROPERTY = "msalmacruntime.dll.path";
-    private static final String LIB_PATH_ENV = "MSALMACRUNTIME_DLL_PATH";
+    private static final String LIB_PATH_PROPERTY = "msalmacruntime.dylib.path";
+    private static final String LIB_PATH_ENV = "MSALMACRUNTIME_DYLIB_PATH";
     private static LogCallbackHandle logCallbackHandle;
     private static MsalMacCallbacks.LogCallback logCallback = new MsalMacCallbacks.LogCallback();
 
