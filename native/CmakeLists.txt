@@ -28,16 +28,19 @@ endif()
 add_executable(ReceiveAuthCode
         ${RUNTIME_SOURCES}
         src/samples/ReceiveAuthCode.m
+        src/samples/SampleAuthCommon.h
 )
 # ── Sample: receive auth code then exchange for token set with default approach ──────────────────
 add_executable(ExchangeCodeForTokensDefault
         ${RUNTIME_SOURCES}
         src/samples/ExchangeCodeForTokensDefault.m
+        src/samples/SampleAuthCommon.h
 )
 # ── Sample: receive auth code then exchange for token set with select account approach-────────────
 add_executable(ExchangeCodeForTokensSelectAccount
         ${RUNTIME_SOURCES}
         src/samples/ExchangeCodeForTokensSelectAccount.m
+        src/samples/SampleAuthCommon.h
 )
 
 
