@@ -6,16 +6,21 @@ project(Msal4JMacRuntime LANGUAGES OBJC C)
 # Set the standard (optional but recommended)
 set(CMAKE_OBJC_STANDARD 11)
 
-include_directories(src/headers)
+option(MSAL4J_BUILD_SAMPLES "Build native sample executables" ON)
 
 # Shared library sources (no main)
-set(RUNTIME_SOURCES
+set(RUNTIME_IMPL_SOURCES
         src/Msal4JRuntime.m
         src/Msal4JRuntimeWindowController.m
-        src/headers/Msal4JRuntimeWindowController.h
         src/Msal4JTokenExchange.m
-        src/headers/MacBrokerBridge.h
         src/MacBrokerBridge.m
+)
+
+set(RUNTIME_PUBLIC_HEADERS
+        src/headers/MacBrokerBridge.h
+        src/headers/Msal4JRuntimeWindowController.h
+        src/headers/Msal4JTokenExchange.h
+        src/headers/Msal4JTokenSet.h
 )
 
 if(APPLE)
@@ -24,32 +29,60 @@ if(APPLE)
     find_library(WEBKIT_FRAMEWORK WebKit)
 endif()
 
-# ── Sample: receive auth code only ──────────────────────────────────────────────────────────────
-add_executable(ReceiveAuthCode
-        ${RUNTIME_SOURCES}
-        src/samples/ReceiveAuthCode.m
-        src/samples/SampleAuthCommon.h
-)
-# ── Sample: receive auth code then exchange for token set with default approach ──────────────────
-add_executable(ExchangeCodeForTokensDefault
-        ${RUNTIME_SOURCES}
-        src/samples/ExchangeCodeForTokensDefault.m
-        src/samples/SampleAuthCommon.h
-)
-# ── Sample: receive auth code then exchange for token set with select account approach-────────────
-add_executable(ExchangeCodeForTokensSelectAccount
-        ${RUNTIME_SOURCES}
-        src/samples/ExchangeCodeForTokensSelectAccount.m
-        src/samples/SampleAuthCommon.h
+add_library(Msal4JMacBrokerBridge SHARED
+        ${RUNTIME_IMPL_SOURCES}
+        ${RUNTIME_PUBLIC_HEADERS}
 )
 
+set_target_properties(Msal4JMacBrokerBridge PROPERTIES
+        OUTPUT_NAME "msal4j_mac_broker_bridge"
+        PUBLIC_HEADER "${RUNTIME_PUBLIC_HEADERS}"
+)
 
+target_include_directories(Msal4JMacBrokerBridge
+        PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/headers
+)
 
 if(APPLE)
-    target_link_libraries(ExchangeCodeForTokensDefault PRIVATE
-            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
-    target_link_libraries(ExchangeCodeForTokensSelectAccount PRIVATE
-            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
-    target_link_libraries(ReceiveAuthCode PRIVATE
+    target_link_libraries(Msal4JMacBrokerBridge PRIVATE
             ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
 endif()
+
+# Collect native outputs needed by Java/JNA/JNI consumers.
+set(JAVA_ARTIFACTS_DIR ${CMAKE_BINARY_DIR}/dist/java)
+add_custom_target(JavaBridgeArtifacts
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${JAVA_ARTIFACTS_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:Msal4JMacBrokerBridge> ${JAVA_ARTIFACTS_DIR}/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/headers/MacBrokerBridge.h ${JAVA_ARTIFACTS_DIR}/
+        DEPENDS Msal4JMacBrokerBridge
+        COMMENT "Collecting bridge artifacts for Java consumers"
+)
+
+if(MSAL4J_BUILD_SAMPLES)
+    # ── Sample: receive auth code only ──────────────────────────────────────────────────────────────
+    add_executable(ReceiveAuthCode
+            src/samples/ReceiveAuthCode.m
+            src/samples/SampleAuthCommon.h
+    )
+    target_link_libraries(ReceiveAuthCode PRIVATE Msal4JMacBrokerBridge)
+
+    # ── Sample: receive auth code then exchange for token set with default approach ──────────────────
+    add_executable(ExchangeCodeForTokensDefault
+            src/samples/ExchangeCodeForTokensDefault.m
+            src/samples/SampleAuthCommon.h
+    )
+    target_link_libraries(ExchangeCodeForTokensDefault PRIVATE Msal4JMacBrokerBridge)
+
+    # ── Sample: receive auth code then exchange for token set with select account approach ───────────
+    add_executable(ExchangeCodeForTokensSelectAccount
+            src/samples/ExchangeCodeForTokensSelectAccount.m
+            src/samples/SampleAuthCommon.h
+    )
+    target_link_libraries(ExchangeCodeForTokensSelectAccount PRIVATE Msal4JMacBrokerBridge)
+endif()
+
+install(TARGETS Msal4JMacBrokerBridge
+        LIBRARY DESTINATION lib
+        PUBLIC_HEADER DESTINATION include
+)
