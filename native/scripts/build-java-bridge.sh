@@ -15,5 +15,4 @@ cmake --build "${BUILD_DIR}" --target JavaBridgeArtifacts
 
 echo
 echo "Java bridge artifacts:"
-echo "  ${BUILD_DIR}/dist/java/libmsal4j_mac_broker_bridge.dylib"
-echo "  ${BUILD_DIR}/dist/java/MacBrokerBridge.h"
+echo "  ${BUILD_DIR}"
