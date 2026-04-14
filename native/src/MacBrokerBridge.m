@@ -2,22 +2,6 @@
 
 #import <Cocoa/Cocoa.h>
 
-static BOOL gMSALRuntimeStarted = NO;
-
-static MSALMacErrorHandle gLastError = {0};
-static LogCallbackContext *gLogCallbackContext = NULL;
-static NSMutableDictionary *gAsyncOperations = nil;
-static NSMutableDictionary *gAuthParameters = nil;
-static NSMutableDictionary *gAccounts = nil;
-static NSMutableDictionary *gAuthResults = nil;
-static NSMutableDictionary *gReadAccountResults = nil;
-static NSMutableDictionary *gSignOutResults = nil;
-static NSMutableDictionary *gErrors = nil;
-static dispatch_queue_t gBrokerQueue = nil;
-static NSObject *gSyncLock = nil;
-static int64_t gHandleCounter = 1000;
-static NSSet<NSString *> *kReservedAuthParameterKeys = nil;
-
 typedef struct {
     LogCallback callback;
     int32_t callbackData;
@@ -37,6 +21,24 @@ typedef struct {
     SignOutResultCallback callback;
     int32_t callbackData;
 } SignOutResultContext;
+
+static BOOL gMSALRuntimeStarted = NO;
+
+static MSALMacErrorHandle gLastError = {0};
+static LogCallbackContext *gLogCallbackContext = NULL;
+static NSMutableDictionary *gAsyncOperations = nil;
+static NSMutableDictionary *gAuthParameters = nil;
+static NSMutableDictionary *gAccounts = nil;
+static NSMutableDictionary *gAuthResults = nil;
+static NSMutableDictionary *gReadAccountResults = nil;
+static NSMutableDictionary *gSignOutResults = nil;
+static NSMutableDictionary *gErrors = nil;
+static dispatch_queue_t gBrokerQueue = nil;
+static NSObject *gSyncLock = nil;
+static int64_t gHandleCounter = 1000;
+static NSSet<NSString *> *kReservedAuthParameterKeys = nil;
+
+static void ensureRuntimeStateInitialized(void);
 
 MSALMacErrorHandle MSALMACRUNTIME_Startup(void) {
     @autoreleasepool {

@@ -12,6 +12,7 @@ include_directories(src/headers)
 set(RUNTIME_SOURCES
         src/Msal4JRuntime.m
         src/Msal4JRuntimeWindowController.m
+        src/headers/Msal4JRuntimeWindowController.h
         src/Msal4JTokenExchange.m
         src/headers/MacBrokerBridge.h
         src/MacBrokerBridge.m
@@ -23,22 +24,29 @@ if(APPLE)
     find_library(WEBKIT_FRAMEWORK WebKit)
 endif()
 
-# ── Sample: receive auth code only ─────────────────────────────────────────
+# ── Sample: receive auth code only ──────────────────────────────────────────────────────────────
 add_executable(ReceiveAuthCode
         ${RUNTIME_SOURCES}
         src/samples/ReceiveAuthCode.m
 )
-# ── Sample: receive auth code then exchange for token set ──────────────────
-add_executable(ExchangeCodeForTokens
+# ── Sample: receive auth code then exchange for token set with default approach ──────────────────
+add_executable(ExchangeCodeForTokensDefault
         ${RUNTIME_SOURCES}
-        src/samples/ExchangeCodeForTokens.m
+        src/samples/ExchangeCodeForTokensDefault.m
+)
+# ── Sample: receive auth code then exchange for token set with select account approach-────────────
+add_executable(ExchangeCodeForTokensSelectAccount
+        ${RUNTIME_SOURCES}
+        src/samples/ExchangeCodeForTokensSelectAccount.m
 )
 
 
-if(APPLE)
-    target_link_libraries(ExchangeCodeForTokens PRIVATE
-            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
 
+if(APPLE)
+    target_link_libraries(ExchangeCodeForTokensDefault PRIVATE
+            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
+    target_link_libraries(ExchangeCodeForTokensSelectAccount PRIVATE
+            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
     target_link_libraries(ReceiveAuthCode PRIVATE
             ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
 endif()

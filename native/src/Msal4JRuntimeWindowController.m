@@ -197,14 +197,23 @@ static const NSInteger kErrorCodeNoAuthCode = -2;
     if (self.didComplete) { return; }
     self.didComplete = YES;
 
-    void (^handler)(NSString *_Nullable, NSError *_Nullable) = self.completionHandler;
+    Msal4JRuntimeWindowController *retainedSelf = [self retain];
+    void (^handler)(NSString *_Nullable, NSError *_Nullable) = [self.completionHandler copy];
+    NSString *authCodeCopy = [authCode copy];
+    NSError *errorCopy = [error retain];
     self.completionHandler = nil;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (handler) { handler(authCode, error); }
+        if (handler) { handler(authCodeCopy, errorCopy); }
         // Close without triggering windowWillClose recursion.
-        self.window.delegate = nil;
-        [self close];
+        NSWindow *window = retainedSelf.window;
+        window.delegate = nil;
+        [window close];
+
+        [handler release];
+        [authCodeCopy release];
+        [errorCopy release];
+        [retainedSelf release];
     });
 }
 

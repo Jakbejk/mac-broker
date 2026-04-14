@@ -21,7 +21,7 @@ int main(int argc, const char * argv[]) {
                 @"?client_id=%@"
                 @"&response_type=code"
                 @"&redirect_uri=%@"
-                @"&scope=openid%%20profile",
+                @"&scope=openid%%20profile%%20offline_access",
                 kTenantId, kClientId, kRedirectURI];
 
         NSString *tokenEndpoint = [NSString stringWithFormat: @"https://login.microsoftonline.com/%@/oauth2/v2.0/token", kTenantId];
@@ -35,7 +35,7 @@ int main(int argc, const char * argv[]) {
             [[Msal4JRuntimeWindowController alloc]
               initWithAuthURL:authURL
               redirectURI:kRedirectURI
-              promptBehavior:Msal4JPromptBehaviorDefault
+              promptBehavior:Msal4JPromptBehaviorSelectAccount
               completionHandler:^(NSString *authCode, NSError *authError) {
                 NSLog(@"[main] Auth code received: %@", authCode ?: @"(none)");
                 if (authError) {
@@ -45,8 +45,7 @@ int main(int argc, const char * argv[]) {
                 }
 
                 NSLog(@"[main] Auth code received, exchanging for tokens...");
-                [exchange exchangeCode:authCode
-                          codeVerifier:nil  // set if PKCE was used
+                [exchange exchangeCode:authCode codeVerifier:nil
                             completion:^(Msal4JTokenSet *tokenSet, NSError *tokenError) {
                     if (tokenError) {
                         NSLog(@"[main] Token exchange failed: %@", tokenError);
