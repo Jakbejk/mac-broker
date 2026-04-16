@@ -659,7 +659,7 @@ static void MBDispatchAuthCallback(MBAsyncOperation *operation,
     operation.tokenExchange = nil;
 
     int64_t authResultHandle = MBStoreHandleObject(authResult ?: [[[MBAuthResult alloc] init] autorelease]);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         callback(authResultHandle, callbackData, status);
     });
 }
@@ -673,7 +673,7 @@ static void MBDispatchReadAccountCallback(MBAsyncOperation *operation,
     if (!MBAsyncTryComplete(operation)) { return; }
 
     int64_t readHandle = MBStoreHandleObject(readResult ?: [[[MBReadAccountResult alloc] init] autorelease]);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         callback(readHandle, callbackData, status);
     });
 }
@@ -687,7 +687,7 @@ static void MBDispatchSignOutCallback(MBAsyncOperation *operation,
     if (!MBAsyncTryComplete(operation)) { return; }
 
     int64_t signOutHandle = MBStoreHandleObject(signOutResult ?: [[[MBSignOutResult alloc] init] autorelease]);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         callback(signOutHandle, callbackData, status);
     });
 }
@@ -740,7 +740,6 @@ static void MBStartInteractiveFlow(MBAsyncOperation *operation,
                                    int32_t callbackData) {
     NSString *authURL = MBBuildAuthorizationURL(authParameters, accountHint);
     NSString *tokenEndpoint = MBTokenEndpointFromAuthority(authParameters.authority);
-
     if (!authURL.length || !tokenEndpoint.length || !authParameters.clientId.length || !authParameters.redirectUri.length) {
         MBError *error = MBCreateError(
             MSALMAC_RESPONSE_STATUS_ERROR,
@@ -912,7 +911,7 @@ MSALMacErrorHandle MSALMACRUNTIME_ReadAccountByIdAsync(
     MBCreateAsyncOperation(asyncHandle, &operation);
 
     NSString *accountIdString = MBStringFromWide(accountId);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         if (MBAsyncIsCancelled(operation)) {
             MBDispatchReadAccountCallback(
                 operation,
@@ -981,7 +980,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInAsync(
     MBCreateAsyncOperation(asyncHandle, &operation);
     NSString *hint = MBStringFromWide(accountHint);
 
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         if (MBAsyncIsCancelled(operation)) {
             MBDispatchAuthCallback(
                 operation,
@@ -1024,7 +1023,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInSilentlyAsync(
     MBAsyncOperation *operation = nil;
     MBCreateAsyncOperation(asyncHandle, &operation);
 
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         if (MBAsyncIsCancelled(operation)) {
             MBDispatchAuthCallback(
                 operation,
@@ -1071,7 +1070,6 @@ MSALMacErrorHandle MSALMACRUNTIME_SignInInteractivelyAsync(
 ) {
     (void)parentWindowHandle;
     (void)correlationId;
-
     if (!MBIsStarted() || !callback) {
         if (asyncHandle) { asyncHandle->value = 0; }
         return MBFailureHandle();
@@ -1113,7 +1111,7 @@ MSALMacErrorHandle MSALMACRUNTIME_AcquireTokenSilentlyAsync(
     MBCreateAsyncOperation(asyncHandle, &operation);
 
     MBAccount *account = MBCopyHandleObject(accountHandle, [MBAccount class]);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         if (MBAsyncIsCancelled(operation)) {
             MBDispatchAuthCallback(
                 operation,
@@ -1212,7 +1210,7 @@ MSALMacErrorHandle MSALMACRUNTIME_SignOutSilentlyAsync(
     MBCreateAsyncOperation(asyncHandle, &operation);
 
     MBAccount *account = MBCopyHandleObject(accountHandle, [MBAccount class]);
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(gStateQueue, ^{
         if (MBAsyncIsCancelled(operation)) {
             MBDispatchSignOutCallback(
                 operation,

@@ -10,7 +10,6 @@ option(MSAL4J_BUILD_SAMPLES "Build native sample executables" ON)
 
 # Shared library sources (no main)
 set(RUNTIME_IMPL_SOURCES
-        src/Msal4JRuntime.m
         src/Msal4JRuntimeWindowController.m
         src/Msal4JTokenExchange.m
         src/MacBrokerBridge.m
@@ -27,6 +26,7 @@ if(APPLE)
     find_library(FOUNDATION_FRAMEWORK Foundation)
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(WEBKIT_FRAMEWORK WebKit)
+    find_library(APPLICATIONSERVICES_FRAMEWORK ApplicationServices)
 endif()
 
 add_library(Msal4JMacBrokerBridge SHARED
@@ -45,8 +45,15 @@ target_include_directories(Msal4JMacBrokerBridge
 )
 
 if(APPLE)
+    set(MAC_RUNTIME_FRAMEWORKS
+            ${FOUNDATION_FRAMEWORK}
+            ${COCOA_FRAMEWORK}
+            ${WEBKIT_FRAMEWORK}
+            ${APPLICATIONSERVICES_FRAMEWORK}
+    )
+
     target_link_libraries(Msal4JMacBrokerBridge PRIVATE
-            ${FOUNDATION_FRAMEWORK} ${COCOA_FRAMEWORK} ${WEBKIT_FRAMEWORK})
+            ${MAC_RUNTIME_FRAMEWORKS})
 endif()
 
 # Collect native outputs needed by Java/JNA/JNI consumers.
@@ -80,6 +87,12 @@ if(MSAL4J_BUILD_SAMPLES)
             src/samples/SampleAuthCommon.h
     )
     target_link_libraries(ExchangeCodeForTokensSelectAccount PRIVATE Msal4JMacBrokerBridge)
+
+    if(APPLE)
+        target_link_libraries(ReceiveAuthCode PRIVATE ${MAC_RUNTIME_FRAMEWORKS})
+        target_link_libraries(ExchangeCodeForTokensDefault PRIVATE ${MAC_RUNTIME_FRAMEWORKS})
+        target_link_libraries(ExchangeCodeForTokensSelectAccount PRIVATE ${MAC_RUNTIME_FRAMEWORKS})
+    endif()
 endif()
 
 install(TARGETS Msal4JMacBrokerBridge
